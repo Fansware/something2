@@ -5,15 +5,38 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 
--- Tus 3 llaves maestras permanentes (Tú y tus 2 amigos)
+-- Tus llaves maestras y las 20 llaves adicionales para Discord
 local MasterKeys = {
+    -- Tus llaves originales
     "yeahfreeformelol",
-    "withlovekeyfriend",
-    "withlovekeyfriend2"
+    "withlovekeyfriends",
+    "withlovekeyfriends2",
+    
+    -- 20 Llaves adicionales para usuarios de Discord
+    "fans_7f8a9b2c",
+    "fans_3x4k9p1m",
+    "fans_8q2w5z7y",
+    "fans_1m6n4b8v",
+    "fans_9p5l2k3j",
+    "fans_4h7g1f6d",
+    "fans_2c8x3z9w",
+    "fans_6v1b5n7m",
+    "fans_5j9k2l4p",
+    "fans_3d8f6g1h",
+    "fans_7w2q9e4r",
+    "fans_1t5y8u3i",
+    "fans_9o4p2l6k",
+    "fans_8j3h5g7f",
+    "fans_2d1s6a9z",
+    "fans_4x7c3v2b",
+    "fans_6n8m1k5j",
+    "fans_9h2g4f7d",
+    "fans_5s3a8z1x",
+    "fans_7p6o5i4u"
 }
 
 -- Tu invitación de Discord (se copiará al portapapeles)
-local DiscordKeyLink = "https://discord.gg/VuZDVQ97Z"
+local DiscordKeyLink = "https://discord.gg/m6Puq7NYqm"
 
 -- Crear UI de la Key
 local ScreenGui = Instance.new("ScreenGui")
@@ -102,7 +125,7 @@ SubmitBtn.MouseButton1Click:Connect(function()
     local userKey = TextBox.Text
     local granted = false
 
-    -- Validar contra las llaves maestras (Tú y tus 2 amigos)
+    -- Validar contra las llaves permitidas
     for _, k in ipairs(MasterKeys) do
         if userKey == k then
             granted = true
@@ -119,4 +142,3 @@ SubmitBtn.MouseButton1Click:Connect(function()
         TextBox.PlaceholderText = "Key inválida. Pídela en Discord."
     end
 end)
-
