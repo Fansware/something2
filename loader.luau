@@ -136,7 +136,7 @@ SubmitBtn.MouseButton1Click:Connect(function()
     if granted then
         ScreenGui:Destroy()
         -- Carga el script principal del Shooter desde tu GitHub
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/Fansware/Script/main/Something1"))()
+        loadstring(game:HttpGet(""))()
     else
         TextBox.Text = ""
         TextBox.PlaceholderText = "Key inválida. Pídela en Discord."
