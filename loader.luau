@@ -1,5 +1,5 @@
 --========================================================
--- FANSWARE - SISTEMA COMPLETO (KEY SYSTEM + RIVALS UI + SKIN CHANGER REAL)
+-- FANSWARE - SISTEMA COMPLETO (KEY SYSTEM + RIVALS UI + SKIN CHANGER UNBLOCK ALL)
 --========================================================
 
 local Players = game:GetService("Players")
@@ -183,7 +183,7 @@ function StartMainScript()
 	SubTitleLabel.Size = UDim2.fromOffset(300, 15)
 	SubTitleLabel.Position = UDim2.fromOffset(65, 25)
 	SubTitleLabel.BackgroundTransparency = 1
-	SubTitleLabel.Text = "BETTER AIM  •  BETTER PLAYS"
+	SubTitleLabel.Text = "BETTER AIM  •  SKIN CHANGER UNLOCKER"
 	SubTitleLabel.TextColor3 = Color3.fromRGB(100, 120, 160)
 	SubTitleLabel.TextSize = 10
 	SubTitleLabel.Font = Enum.Font.GothamMedium
@@ -269,7 +269,7 @@ function StartMainScript()
 		SilentAim = { Enabled = false },
 		TriggerBot = { Enabled = false, TeamCheck = true },
 		ESP = { Enabled = false, Box = false, Health = false, Tracer = false },
-		Skins = { Primary = "Assault Rifle", Secondary = "Handgun", Melee = "Katana", Utility = "Grenade" }
+		SkinChanger = { UnblockAll = false }
 	}
 
 	--========================================================
@@ -377,44 +377,31 @@ function StartMainScript()
 
 
 	--========================================================
-	-- PÁGINA 3: SKIN CHANGER (Nombres oficiales de RIVALS)
+	-- PÁGINA 3: SKIN CHANGER (Unblock All Toggle)
 	--========================================================
 	local SkinPage = CreatePage()
 	AddTabButton("🎨  SKIN CHANGER", SkinPage)
+	local SkinCol = CreateColumn(SkinPage, 0)
+	local SkinCard = CreateCard(SkinCol, "SKIN CHANGER UNLOCKER", 120)
 	
-	local SkinCol1 = CreateColumn(SkinPage, 0)
-	local SkinCol2 = CreateColumn(SkinPage, 375)
-	
-	local SkinCard1 = CreateCard(SkinCol1, "PRIMARY WEAPONS", 240)
-	local SkinCard2 = CreateCard(SkinCol2, "SECONDARY & MELEE", 240)
-
-	local skinY1 = 38
-	local function addSkinDropdown(card, title, options, default, cb)
-		local f = Instance.new("Frame", card) f.Size = UDim2.new(1, -24, 0, 45) f.Position = UDim2.fromOffset(12, skinY1) f.BackgroundTransparency = 1
-		local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, 0, 0, 18) l.BackgroundTransparency = 1 l.Text = title l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
-		local btn = Instance.new("TextButton", f) btn.Size = UDim2.new(1, 0, 0, 22) btn.Position = UDim2.fromOffset(0, 20) btn.BackgroundColor3 = Color3.fromRGB(24, 30, 42) btn.BorderSizePixel = 0 btn.Text = "  " .. default btn.TextColor3 = Color3.fromRGB(255, 255, 255) btn.TextSize = 11 btn.Font = Enum.Font.Gotham btn.TextXAlignment = Enum.TextXAlignment.Left
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-		local idx = 1 for i, o in ipairs(options) do if o == default then idx = i break end end
-		btn.MouseButton1Click:Connect(function()
-			idx = idx + 1 if idx > #options then idx = 1 end
-			local chosen = options[idx] btn.Text = "  " .. chosen cb(chosen)
-		end)
-		skinY1 = skinY1 + 52
+	y1 = 38
+	local function addToggleTo5(card, text, default, cb)
+		local f = Instance.new("Frame", card) f.Size = UDim2.new(1, -24, 0, 26) f.Position = UDim2.fromOffset(12, y1) f.BackgroundTransparency = 1
+		local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, -50, 1, 0) l.BackgroundTransparency = 1 l.Text = text l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
+		local b = Instance.new("TextButton", f) b.Size = UDim2.fromOffset(36, 18) b.Position = UDim2.new(1, -36, 0.5, -9) b.Text = "" b.BorderSizePixel = 0 Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+		local st = default local function up() b.BackgroundColor3 = st and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60) end up()
+		b.MouseButton1Click:Connect(function() st = not st up() cb(st) end) y1 = y1 + 30
 	end
-
-	-- Listas oficiales de armas extraídas del juego RIVALS
-	local PrimaryList = {"Assault Rifle", "Burst Rifle", "Shotgun", "Sniper", "Bow", "Crossbow", "Energy Rifle", "Flamethrower", "Grenade Launcher", "Gunblade", "RPG", "Wildcat"}
-	local SecondaryList = {"Handgun", "Revolver", "Uzi", "Shorty", "Flare Gun", "Energy Pistols", "Daggers", "Warper"}
-	local MeleeList = {"Fists", "Knife", "Katana", "Scythe", "Maul", "Chainsaw", "Battle Axe"}
-	local UtilityList = {"Grenade", "Flashbang", "Smoke Grenade", "Molotov", "Medkit", "Grappler"}
-
-	skinY1 = 38
-	addSkinDropdown(SkinCard1, "Primary Weapon", PrimaryList, "Assault Rifle", function(v) Config.Skins.Primary = v end)
-	addSkinDropdown(SkinCard1, "Secondary Weapon", SecondaryList, "Handgun", function(v) Config.Skins.Secondary = v end)
-
-	skinY1 = 38
-	addSkinDropdown(SkinCard2, "Melee Weapon", MeleeList, "Katana", function(v) Config.Skins.Melee = v end)
-	addSkinDropdown(SkinCard2, "Utility Weapon", UtilityList, "Grenade", function(v) Config.Skins.Utility = v end)
+	
+	addToggleTo5(SkinCard, "Unblock All Skins / Cosmetics", false, function(v)
+		Config.SkinChanger.UnblockAll = v
+		pcall(function()
+			local remotes = ReplicatedStorage:FindFirstChild("ShooterRemotes")
+			if remotes and remotes:FindFirstChild("UnlockAllSkins") then
+				remotes.UnlockAllSkins:FireServer(v)
+			end
+		end)
+	end)
 
 
 	--========================================================
@@ -430,3 +417,26 @@ function StartMainScript()
 	setLbl.BackgroundTransparency = 1
 	setLbl.Text = "Open/Close Menu Key: RightShift"
 	setLbl.TextColor3 = Color3.fromRGB(200, 210, 230)
+	setLbl.TextSize = 12
+	setLbl.Font = Enum.Font.GothamMedium
+	setLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+
+	--========================================================
+	-- LÓGICA DE EJECUCIÓN (AIMBOT, ESP, TRIGGERBOT)
+	--========================================================
+	local ESPInstances = {}
+	local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
+	if not RemoteFolder then
+		RemoteFolder = Instance.new("Folder") RemoteFolder.Name = "ShooterRemotes" RemoteFolder.Parent = ReplicatedStorage
+	end
+	local FireRemote = RemoteFolder:FindFirstChild("Fire")
+	if not FireRemote then
+		FireRemote = Instance.new("RemoteEvent") FireRemote.Name = "Fire" FireRemote.Parent = RemoteFolder
+	end
+
+	local function GetCharacter(player) return player and player.Character end
+	local function GetHumanoid(character) return character and character:FindFirstChildOfClass("Humanoid") end
+	local function IsAlive(character) local hum = GetHumanoid(character) return hum ~= nil and hum.Health > 0 end
+	local function GetRoot(character) return character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart end
+	local function GetHead(character) return 
