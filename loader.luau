@@ -24,7 +24,7 @@ local MasterKeys = {
     "fans_7w2q9e4r", "fans_1t5y8u3i", "fans_9o4p2l6k", "fans_8j3h5g7f", "fans_2d1s6a9z",
     "fans_4x7c3v2b", "fans_6n8m1k5j", "fans_9h2g4f7d", "fans_5s3a8z1x", "fans_7p6o5i4u"
 }
-local DiscordKeyLink = "https://discord.gg/tucodigo"
+local DiscordKeyLink = "https://discord.gg/x7RWHj882f"
 
 if CoreGui:FindFirstChild("ShooterKeySystem") then CoreGui.ShooterKeySystem:Destroy() end
 if CoreGui:FindFirstChild("FanswareRivalsUI") then CoreGui.FanswareRivalsUI:Destroy() end
