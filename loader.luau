@@ -1,6 +1,5 @@
 --========================================================
--- FANSWARE EXECUTOR - TODO EN UNO (KEY SYSTEM + SCRIPT)
--- COMPATIBLE CON XENO
+-- FANSWARE - SISTEMA COMPLETO RIVALS / KICIAHOOK
 --========================================================
 
 local Players = game:GetService("Players")
@@ -13,371 +12,464 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
---========================================================
--- 1. SISTEMA DE LLAVES (KEY SYSTEM)
---========================================================
-local MasterKeys = {
-    -- Tus llaves principales
-    "yeahfreeformelol",
-    "withlovekeyfriends",
-    "withlovekeyfriends2",
-    
-    -- Llaves adicionales de Discord
-    "fans_7f8a9b2c", "fans_3x4k9p1m", "fans_8q2w5z7y", "fans_1m6n4b8v", "fans_9p5l2k3j",
-    "fans_4h7g1f6d", "fans_2c8x3z9w", "fans_6v1b5n7m", "fans_5j9k2l4p", "fans_3d8f6g1h",
-    "fans_7w2q9e4r", "fans_1t5y8u3i", "fans_9o4p2l6k", "fans_8j3h5g7f", "fans_2d1s6a9z",
-    "fans_4x7c3v2b", "fans_6n8m1k5j", "fans_9h2g4f7d", "fans_5s3a8z1x", "fans_7p6o5i4u"
-}
+-- Notificación inicial inferior
+task.spawn(function()
+	local notifyGui = Instance.new("ScreenGui")
+	notifyGui.Name = "FanswareNotification"
+	notifyGui.Parent = CoreGui
 
-local DiscordKeyLink = "https://discord.gg/FMnPMdCj2Z"
+	local notifFrame = Instance.new("Frame")
+	notifFrame.Size = UDim2.fromOffset(260, 40)
+	notifFrame.Position = UDim2.new(0.5, -130, 1, 60)
+	notifFrame.AnchorPoint = Vector2.new(0.5, 1)
+	notifFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+	notifFrame.BorderSizePixel = 0
+	notifFrame.Parent = notifyGui
+
+	Instance.new("UICorner", notifFrame).CornerRadius = UDim.new(0, 8)
+	local stroke = Instance.new("UIStroke", notifFrame)
+	stroke.Color = Color3.fromRGB(85, 170, 255)
+	stroke.Thickness = 1.5
+
+	local label = Instance.new("TextLabel", notifFrame)
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "Enjoy fansware script"
+	label.TextColor3 = Color3.fromRGB(240, 240, 245)
+	label.TextSize = 13
+	label.Font = Enum.Font.GothamBold
+
+	TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -130, 1, -30)}):Play()
+	task.wait(3.5)
+	local out = TweenService:Create(notifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -130, 1, 60)})
+	out:Play()
+	out.Completed:Wait()
+	notifyGui:Destroy()
+end)
 
 -- Limpiar interfaz anterior si existe
-if CoreGui:FindFirstChild("ShooterKeySystem") then CoreGui.ShooterKeySystem:Destroy() end
-if CoreGui:FindFirstChild("FanswareKiciaHook") then CoreGui.FanswareKiciaHook:Destroy() end
+if CoreGui:FindFirstChild("FanswareRivalsUI") then CoreGui.FanswareRivalsUI:Destroy() end
 
-local KeyGui = Instance.new("ScreenGui")
-KeyGui.Name = "ShooterKeySystem"
-KeyGui.Parent = CoreGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FanswareRivalsUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.fromOffset(400, 220)
-MainFrame.Position = UDim2.fromScale(0.5, 0.5)
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = KeyGui
+-- Ventana Principal
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.fromOffset(780, 520)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
+Main.BorderSizePixel = 0
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+local MainStroke = Instance.new("UIStroke", Main)
+MainStroke.Color = Color3.fromRGB(35, 40, 60)
+MainStroke.Thickness = 1.5
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundTransparency = 1
-Title.Text = "AUTENTICACIÓN - FANSWARE"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
-Title.Font = Enum.Font.GothamBold
-Title.Parent = MainFrame
+-- Barra Superior
+local TopBar = Instance.new("Frame", Main)
+TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.BackgroundTransparency = 1
 
-local TextBox = Instance.new("TextBox")
-TextBox.Size = UDim2.new(1, -40, 0, 45)
-TextBox.Position = UDim2.fromOffset(20, 60)
-TextBox.PlaceholderText = "Ingresa tu Key aquí..."
-TextBox.Text = ""
-TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-TextBox.TextSize = 14
-TextBox.Font = Enum.Font.Gotham
-TextBox.Parent = MainFrame
+local LogoIcon = Instance.new("TextLabel", TopBar)
+LogoIcon.Size = UDim2.fromOffset(40, 40)
+LogoIcon.Position = UDim2.fromOffset(15, 5)
+LogoIcon.BackgroundColor3 = Color3.fromRGB(45, 90, 255)
+LogoIcon.Text = "F"
+LogoIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+LogoIcon.TextSize = 20
+LogoIcon.Font = Enum.Font.GothamBold
+Instance.new("UICorner", LogoIcon).CornerRadius = UDim.new(0, 8)
 
-local TextBoxCorner = Instance.new("UICorner")
-TextBoxCorner.CornerRadius = UDim.new(0, 6)
-TextBoxCorner.Parent = TextBox
+local TitleLabel = Instance.new("TextLabel", TopBar)
+TitleLabel.Size = UDim2.fromOffset(300, 25)
+TitleLabel.Position = UDim2.fromOffset(65, 5)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "RIVALS"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local SubmitBtn = Instance.new("TextButton")
-SubmitBtn.Size = UDim2.new(0, 170, 0, 35)
-SubmitBtn.Position = UDim2.fromOffset(20, 120)
-SubmitBtn.BackgroundColor3 = Color3.fromRGB(85, 170, 255)
-SubmitBtn.Text = "Comprobar Key"
-SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-SubmitBtn.TextSize = 13
-SubmitBtn.Font = Enum.Font.GothamBold
-SubmitBtn.Parent = MainFrame
+local SubTitleLabel = Instance.new("TextLabel", TopBar)
+SubTitleLabel.Size = UDim2.fromOffset(300, 15)
+SubTitleLabel.Position = UDim2.fromOffset(65, 25)
+SubTitleLabel.BackgroundTransparency = 1
+SubTitleLabel.Text = "BETTER AIM  •  BETTER PLAYS"
+SubTitleLabel.TextColor3 = Color3.fromRGB(100, 120, 160)
+SubTitleLabel.TextSize = 10
+SubTitleLabel.Font = Enum.Font.GothamMedium
+SubTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 6)
-BtnCorner.Parent = SubmitBtn
+local CloseBtn = Instance.new("TextButton", TopBar)
+CloseBtn.Size = UDim2.fromOffset(30, 30)
+CloseBtn.Position = UDim2.new(1, -40, 0, 10)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(150, 160, 180)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.GothamBold
 
-local GetKeyBtn = Instance.new("TextButton")
-GetKeyBtn.Size = UDim2.new(0, 170, 0, 35)
-GetKeyBtn.Position = UDim2.fromOffset(210, 120)
-GetKeyBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
-GetKeyBtn.Text = "Copiar Discord"
-GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-GetKeyBtn.TextSize = 13
-GetKeyBtn.Font = Enum.Font.GothamBold
-GetKeyBtn.Parent = MainFrame
-
-local GetKeyCorner = Instance.new("UICorner")
-GetKeyCorner.CornerRadius = UDim.new(0, 6)
-GetKeyCorner.Parent = GetKeyBtn
-
-GetKeyBtn.MouseButton1Click:Connect(function()
-    pcall(function() setclipboard(DiscordKeyLink) end)
-    GetKeyBtn.Text = "¡Link copiado!"
-    task.wait(2)
-    GetKeyBtn.Text = "Copiar Discord"
+CloseBtn.MouseButton1Click:Connect(function()
+	Main.Visible = not Main.Visible
 end)
 
--- Función que se ejecuta al pasar el Key System
-SubmitBtn.MouseButton1Click:Connect(function()
-    local userKey = TextBox.Text
-    local granted = false
+-- Barra de Pestañas Superiores
+local TabBar = Instance.new("Frame", Main)
+TabBar.Size = UDim2.new(1, -30, 0, 45)
+TabBar.Position = UDim2.fromOffset(15, 60)
+TabBar.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
+Instance.new("UICorner", TabBar).CornerRadius = UDim.new(0, 8)
 
-    for _, k in ipairs(MasterKeys) do
-        if userKey == k then
-            granted = true
-            break
-        end
-    end
+local TabListLayout = Instance.new("UIListLayout", TabBar)
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabListLayout.Padding = UDim.new(0, 10)
 
-    if granted then
-        KeyGui:Destroy()
-        StartMainScript() -- Inicia todo el menú principal
-    else
-        TextBox.Text = ""
-        TextBox.PlaceholderText = "Key inválida. Pídela en Discord."
-    end
-end)
+local PagesContainer = Instance.new("Frame", Main)
+PagesContainer.Size = UDim2.new(1, -30, 1, -125)
+PagesContainer.Position = UDim2.fromOffset(15, 115)
+PagesContainer.BackgroundTransparency = 1
 
+local Tabs = {}
+local CurrentPage = nil
 
---========================================================
--- 2. SCRIPT PRINCIPAL (MENÚ KICIAHOOK + FUNCIONES)
---========================================================
-function StartMainScript()
+local function CreatePage()
+	local page = Instance.new("ScrollingFrame", PagesContainer)
+	page.Size = UDim2.fromScale(1, 1)
+	page.BackgroundTransparency = 1
+	page.BorderSizePixel = 0
+	page.ScrollBarThickness = 3
+	page.Visible = false
+	return page
+end
 
-	-- Notificación de carga inferior
-	task.spawn(function()
-		local notifyGui = Instance.new("ScreenGui")
-		notifyGui.Name = "FanswareNotification"
-		notifyGui.Parent = CoreGui
+local function AddTabButton(name, pageObj)
+	local btn = Instance.new("TextButton", TabBar)
+	btn.Size = UDim2.fromOffset(165, 32)
+	btn.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
+	btn.BorderSizePixel = 0
+	btn.Text = "  " .. name
+	btn.TextColor3 = Color3.fromRGB(130, 145, 175)
+	btn.TextSize = 12
+	btn.Font = Enum.Font.GothamMedium
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
-		local notifFrame = Instance.new("Frame")
-		notifFrame.Size = UDim2.fromOffset(260, 40)
-		notifFrame.Position = UDim2.new(0.5, -130, 1, 60)
-		notifFrame.AnchorPoint = Vector2.new(0.5, 1)
-		notifFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-		notifFrame.BorderSizePixel = 0
-		notifFrame.Parent = notifyGui
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 8)
-		corner.Parent = notifFrame
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(85, 170, 255)
-		stroke.Thickness = 1.5
-		stroke.Parent = notifFrame
-
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.new(1, 0, 1, 0)
-		label.BackgroundTransparency = 1
-		label.Text = "Enjoy fansware script"
-		label.TextColor3 = Color3.fromRGB(240, 240, 245)
-		label.TextSize = 13
-		label.Font = Enum.Font.GothamBold
-		label.Parent = notifFrame
-
-		TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -130, 1, -30)}):Play()
-		task.wait(3.5)
-		local out = TweenService:Create(notifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -130, 1, 60)})
-		out:Play()
-		out.Completed:Wait()
-		notifyGui:Destroy()
+	btn.MouseButton1Click:Connect(function()
+		for _, t in pairs(Tabs) do
+			t.Page.Visible = false
+			t.Button.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
+			t.Button.TextColor3 = Color3.fromRGB(130, 145, 175)
+		end
+		pageObj.Visible = true
+		btn.BackgroundColor3 = Color3.fromRGB(45, 90, 255)
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	end)
 
-	local Config = {
-		MenuKey = Enum.KeyCode.K,
-		AimKey = Enum.KeyCode.Q,
-		Aimbot = { Enabled = false, Smoothness = 0.15, FOV = 120, TargetPart = "Head", TeamCheck = true, VisibleCheck = true },
-		TriggerBot = { Enabled = false, TeamCheck = true },
-		ESP = { Enabled = false, Box = false, Skeleton = false, Tracer = false, Name = false, Distance = false, TeamCheck = true, BoxColor = Color3.fromRGB(255, 70, 70), MaxDistance = 1500 }
-	}
-
-	local MenuOpen = true
-	local AimHeld = false
-	local ESPInstances = {}
-
-	local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
-	if not RemoteFolder then
-		RemoteFolder = Instance.new("Folder") RemoteFolder.Name = "ShooterRemotes" RemoteFolder.Parent = ReplicatedStorage
-	end
-	local FireRemote = RemoteFolder:FindFirstChild("Fire")
-	if not FireRemote then
-		FireRemote = Instance.new("RemoteEvent") FireRemote.Name = "Fire" FireRemote.Parent = RemoteFolder
+	if not CurrentPage then
+		CurrentPage = pageObj
+		pageObj.Visible = true
+		btn.BackgroundColor3 = Color3.fromRGB(45, 90, 255)
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	end
 
-	local function GetCharacter(player) return player and player.Character end
-	local function GetHumanoid(character) return character and character:FindFirstChildOfClass("Humanoid") end
-	local function IsAlive(character) local hum = GetHumanoid(character) return hum ~= nil and hum.Health > 0 end
-	local function GetRoot(character) return character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart end
-	local function GetHead(character) return character:FindFirstChild("Head") end
-	local function IsEnemy(player, teamCheck)
-		if player == LocalPlayer then return false end
-		if not teamCheck then return true end
-		if LocalPlayer.Team and player.Team then return player.Team ~= LocalPlayer.Team end
-		return true
+	table.insert(Tabs, {Button = btn, Page = pageObj})
+end
+
+--========================================================
+-- CONFIGURACIÓN GLOBAL DE FUNCIONES
+--========================================================
+local Config = {
+	MenuKey = Enum.KeyCode.RightShift,
+	AimKey = Enum.KeyCode.Q,
+	Aimbot = { Enabled = false, Smoothness = 0.15, Shaking = 0.0, TargetPart = "Head", TeamCheck = true },
+	SilentAim = { Enabled = false, TargetPart = "Head" },
+	TriggerBot = { Enabled = false, TargetPart = "Head", TeamCheck = true },
+	ESP = { Enabled = false, Box = false, Health = false, Skeleton = false, Tracer = false, TeamCheck = true }
+}
+
+--========================================================
+-- PÁGINA 1: FIGHT
+--========================================================
+local FightPage = CreatePage()
+AddTabButton("🎯  FIGHT", FightPage)
+
+local function CreateColumn(parent, posX)
+	local col = Instance.new("ScrollingFrame", parent)
+	col.Size = UDim2.new(0, 360, 1, -10)
+	col.Position = UDim2.fromOffset(posX, 5)
+	col.BackgroundTransparency = 1
+	col.BorderSizePixel = 0
+	col.ScrollBarThickness = 2
+	local layout = Instance.new("UIListLayout", col)
+	layout.Padding = UDim.new(0, 10)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		col.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 15)
+	end)
+	return col
+end
+
+local Col1 = CreateColumn(FightPage, 0)
+local Col2 = CreateColumn(FightPage, 375)
+
+local function CreateCard(parent, titleText, height)
+	local card = Instance.new("Frame", parent)
+	card.Size = UDim2.new(1, 0, 0, height or 160)
+	card.BackgroundColor3 = Color3.fromRGB(16, 20, 28)
+	card.BorderSizePixel = 0
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+	local stroke = Instance.new("UIStroke", card)
+	stroke.Color = Color3.fromRGB(30, 38, 55)
+
+	local title = Instance.new("TextLabel", card)
+	title.Size = UDim2.new(1, -20, 0, 30)
+	title.Position = UDim2.fromOffset(12, 8)
+	title.BackgroundTransparency = 1
+	title.Text = "🎯  " .. titleText
+	title.TextColor3 = Color3.fromRGB(240, 245, 255)
+	title.TextSize = 13
+	title.Font = Enum.Font.GothamBold
+	title.TextXAlignment = Enum.TextXAlignment.Left
+
+	return card
+end
+
+local function AddToggleToCard(card, text, default, callback)
+	local holder = Instance.new("Frame", card)
+	holder.Size = UDim2.new(1, -24, 0, 30)
+	holder.Position = UDim2.fromOffset(12, card.AbsoluteSize.Y > 0 and card.AbsoluteSize.Y - 35 or 40)
+	holder.BackgroundTransparency = 1
+
+	local label = Instance.new("TextLabel", holder)
+	label.Size = UDim2.new(1, -50, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(200, 210, 230)
+	label.TextSize = 12
+	label.Font = Enum.Font.GothamMedium
+	label.TextXAlignment = Enum.TextXAlignment.Left
+
+	local btn = Instance.new("TextButton", holder)
+	btn.Size = UDim2.fromOffset(36, 18)
+	btn.Position = UDim2.new(1, -36, 0.5, -9)
+	btn.Text = ""
+	btn.BorderSizePixel = 0
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+
+	local state = default
+	local function update()
+		btn.BackgroundColor3 = state and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60)
 	end
+	update()
 
-	local function GetTargetPart(character)
-		local mode = Config.Aimbot.TargetPart
-		if mode == "Head" then return GetHead(character) or GetRoot(character)
-		elseif mode == "Body" then return GetRoot(character) or GetHead(character)
-		elseif mode == "Random" then
-			local parts = {GetHead(character), GetRoot(character), character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")}
-			local valid = {} for _, p in ipairs(parts) do if p then table.insert(valid, p) end end
-			if #valid > 0 then return valid[math.random(1, #valid)] end
-		end
-		return GetHead(character)
+	btn.MouseButton1Click:Connect(function()
+		state = not state
+		update()
+		callback(state)
+	end)
+end
+
+-- Tarjeta Aimbot
+local AimCard = CreateCard(Col1, "AIMBOT", 210)
+-- Ajustar posición de elementos internos
+local function AddUIElementsToAimCard()
+	local y = 38
+	local function addToggle(text, default, cb)
+		local f = Instance.new("Frame", AimCard) f.Size = UDim2.new(1, -24, 0, 26) f.Position = UDim2.fromOffset(12, y) f.BackgroundTransparency = 1
+		local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, -50, 1, 0) l.BackgroundTransparency = 1 l.Text = text l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
+		local b = Instance.new("TextButton", f) b.Size = UDim2.fromOffset(36, 18) b.Position = UDim2.new(1, -36, 0.5, -9) b.Text = "" b.BorderSizePixel = 0 Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+		local st = default local function up() b.BackgroundColor3 = st and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60) end up()
+		b.MouseButton1Click:Connect(function() st = not st up() cb(st) end) y = y + 30
 	end
+	addToggle("Aimbot Active", false, function(v) Config.Aimbot.Enabled = v end)
+	addToggle("Team Check", true, function(v) Config.Aimbot.TeamCheck = v end)
+end
+AddUIElementsToAimCard()
 
-	local function IsVisible(part, character)
-		if not part or not Config.Aimbot.VisibleCheck then return true end
-		local origin = Camera.CFrame.Position
-		local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.FilterDescendantsInstances = {LocalPlayer.Character}
-		local result = workspace:Raycast(origin, part.Position - origin, params)
-		return not result or result.Instance:IsDescendantOf(character)
+-- Tarjeta Silent Aim
+local SilentCard = CreateCard(Col1, "SILENT AIM", 120)
+local function AddUIElementsToSilentCard()
+	local y = 38
+	local f = Instance.new("Frame", SilentCard) f.Size = UDim2.new(1, -24, 0, 26) f.Position = UDim2.fromOffset(12, y) f.BackgroundTransparency = 1
+	local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, -50, 1, 0) l.BackgroundTransparency = 1 l.Text = "Silent Aim Active" l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
+	local b = Instance.new("TextButton", f) b.Size = UDim2.fromOffset(36, 18) b.Position = UDim2.new(1, -36, 0.5, -9) b.Text = "" b.BorderSizePixel = 0 Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+	local st = false local function up() b.BackgroundColor3 = st and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60) end up()
+	b.MouseButton1Click:Connect(function() st = not st up() Config.SilentAim.Enabled = st end)
+end
+AddUIElementsToSilentCard()
+
+-- Tarjeta Triggerbot
+local TriggerCard = CreateCard(Col2, "TRIGGERBOT", 130)
+local function AddUIElementsToTriggerCard()
+	local y = 38
+	local f = Instance.new("Frame", TriggerCard) f.Size = UDim2.new(1, -24, 0, 26) f.Position = UDim2.fromOffset(12, y) f.BackgroundTransparency = 1
+	local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, -50, 1, 0) l.BackgroundTransparency = 1 l.Text = "Triggerbot Active" l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
+	local b = Instance.new("TextButton", f) b.Size = UDim2.fromOffset(36, 18) b.Position = UDim2.new(1, -36, 0.5, -9) b.Text = "" b.BorderSizePixel = 0 Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+	local st = false local function up() b.BackgroundColor3 = st and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60) end up()
+	b.MouseButton1Click:Connect(function() st = not st up() Config.TriggerBot.Enabled = st end)
+end
+AddUIElementsToTriggerCard()
+
+
+--========================================================
+-- PÁGINA 2: ESP
+--========================================================
+local EspPage = CreatePage()
+AddTabButton("👁️  ESP", EspPage)
+
+local EspCol1 = CreateColumn(EspPage, 0)
+local EspCard = CreateCard(EspCol1, "ESP OPTIONS", 220)
+
+local function AddEspToggles()
+	local y = 38
+	local function addToggle(text, default, cb)
+		local f = Instance.new("Frame", EspCard) f.Size = UDim2.new(1, -24, 0, 26) f.Position = UDim2.fromOffset(12, y) f.BackgroundTransparency = 1
+		local l = Instance.new("TextLabel", f) l.Size = UDim2.new(1, -50, 1, 0) l.BackgroundTransparency = 1 l.Text = text l.TextColor3 = Color3.fromRGB(200, 210, 230) l.TextSize = 11 l.Font = Enum.Font.GothamMedium l.TextXAlignment = Enum.TextXAlignment.Left
+		local b = Instance.new("TextButton", f) b.Size = UDim2.fromOffset(36, 18) b.Position = UDim2.new(1, -36, 0.5, -9) b.Text = "" b.BorderSizePixel = 0 Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+		local st = default local function up() b.BackgroundColor3 = st and Color3.fromRGB(45, 90, 255) or Color3.fromRGB(40, 45, 60) end up()
+		b.MouseButton1Click:Connect(function() st = not st up() cb(st) end) y = y + 30
 	end
+	addToggle("Enable ESP", false, function(v) Config.ESP.Enabled = v end)
+	addToggle("Show Boxes", false, function(v) Config.ESP.Box = v end)
+	addToggle("Show Health", false, function(v) Config.ESP.Health = v end)
+	addToggle("Tracers", false, function(v) Config.ESP.Tracer = v end)
+end
+AddEspToggles()
 
-	local function GetClosestTarget()
-		local mousePos = UserInputService:GetMouseLocation()
-		local closestPlayer, closestPart = nil, nil
-		local smallestDistance = Config.Aimbot.FOV
 
-		for _, player in ipairs(Players:GetPlayers()) do
-			if IsEnemy(player, Config.Aimbot.TeamCheck) then
-				local char = GetCharacter(player)
-				if char and IsAlive(char) then
-					local targetPart = GetTargetPart(char)
-					if targetPart then
-						local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-						if onScreen and screenPos.Z > 0 then
-							local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-							if screenDist < smallestDistance and IsVisible(targetPart, char) then
-								smallestDistance = screenDist closestPlayer = player closestPart = targetPart
-							end
+--========================================================
+-- PÁGINA 3: SETTINGS
+--========================================================
+local SettingsPage = CreatePage()
+AddTabButton("⚙️  SETTINGS", SettingsPage)
+
+local SetCol = CreateColumn(SettingsPage, 0)
+local SetCard = CreateCard(SetCol, "MENU SETTINGS", 120)
+local SetLabel = Instance.new("TextLabel", SetCard)
+SetLabel.Size = UDim2.new(1, -24, 0, 30)
+SetLabel.Position = UDim2.fromOffset(12, 40)
+SetLabel.BackgroundTransparency = 1
+SetLabel.Text = "Open/Close Menu Key: RightShift"
+SetLabel.TextColor3 = Color3.fromRGB(200, 210, 230)
+SetLabel.TextSize = 12
+SetLabel.Font = Enum.Font.GothamMedium
+SetLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+
+--========================================================
+-- LÓGICA DE FUNCIONAMIENTO (AIMBOT, ESP, TRIGGERBOT)
+--========================================================
+local ESPInstances = {}
+local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
+if not RemoteFolder then
+	RemoteFolder = Instance.new("Folder") RemoteFolder.Name = "ShooterRemotes" RemoteFolder.Parent = ReplicatedStorage
+end
+local FireRemote = RemoteFolder:FindFirstChild("Fire")
+if not FireRemote then
+	FireRemote = Instance.new("RemoteEvent") FireRemote.Name = "Fire" FireRemote.Parent = RemoteFolder
+end
+
+local function GetCharacter(player) return player and player.Character end
+local function GetHumanoid(character) return character and character:FindFirstChildOfClass("Humanoid") end
+local function IsAlive(character) local hum = GetHumanoid(character) return hum ~= nil and hum.Health > 0 end
+local function GetRoot(character) return character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart end
+local function GetHead(character) return character:FindFirstChild("Head") end
+
+local function IsEnemy(player, teamCheck)
+	if player == LocalPlayer then return false end
+	if not teamCheck then return true end
+	if LocalPlayer.Team and player.Team then return player.Team ~= LocalPlayer.Team end
+	return true
+end
+
+local function GetClosestTarget()
+	local mousePos = UserInputService:GetMouseLocation()
+	local closestPlayer, closestPart = nil, nil
+	local smallestDistance = 300
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if IsEnemy(player, Config.Aimbot.TeamCheck) then
+			local char = GetCharacter(player)
+			if char and IsAlive(char) then
+				local targetPart = GetHead(char) or GetRoot(char)
+				if targetPart then
+					local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+					if onScreen and screenPos.Z > 0 then
+						local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+						if screenDist < smallestDistance then
+							smallestDistance = screenDist closestPlayer = player closestPart = targetPart
 						end
 					end
 				end
 			end
 		end
-		return closestPlayer, closestPart
 	end
+	return closestPlayer, closestPart
+end
 
-	-- ESP Manager
-	local function CreateESP(player)
-		if player == LocalPlayer or ESPInstances[player] then return end
-		local data = { Box = nil, NameGui = nil, NameLabel = nil, Beams = {}, TracerPart = nil, TracerBeam = nil }
+-- ESP Manager
+local function CreateESP(player)
+	if player == LocalPlayer or ESPInstances[player] then return end
+	local box = Instance.new("SelectionBox") box.LineThickness = 0.035 box.Color3 = Color3.fromRGB(255, 70, 70) box.SurfaceTransparency = 1 box.Visible = false box.Parent = workspace
+	ESPInstances[player] = {Box = box}
+end
 
-		local box = Instance.new("SelectionBox") box.LineThickness = 0.035 box.Color3 = Config.ESP.BoxColor box.SurfaceTransparency = 1 box.Visible = false box.Parent = workspace data.Box = box
+local function RemoveESP(player)
+	if ESPInstances[player] and ESPInstances[player].Box then ESPInstances[player].Box:Destroy() end
+	ESPInstances[player] = nil
+end
 
-		local billboard = Instance.new("BillboardGui") billboard.Size = UDim2.fromOffset(150, 40) billboard.StudsOffset = Vector3.new(0, 3, 0) billboard.AlwaysOnTop = true billboard.Enabled = false
-		local label = Instance.new("TextLabel") label.Size = UDim2.fromScale(1, 1) label.BackgroundTransparency = 1 label.TextColor3 = Color3.fromRGB(255, 255, 255) label.TextStrokeTransparency = 0.4 label.TextSize = 12 label.Font = Enum.Font.GothamBold label.Parent = billboard
-		billboard.Parent = workspace data.NameLabel = label data.NameGui = billboard
+for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end) end
+Players.PlayerAdded:Connect(function(p) CreateESP(p) p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end) end)
+Players.PlayerRemoving:Connect(function(p) RemoveESP(p) end)
 
-		local tPart = Instance.new("Part") tPart.Anchored = true tPart.CanCollide = false tPart.Transparency = 1 tPart.Size = Vector3.new(0.05, 0.05, 0.05) tPart.Parent = workspace
-		local att0 = Instance.new("Attachment") att0.Parent = tPart
-		local beam = Instance.new("Beam") beam.Attachment0 = att0 beam.Width0 = 0.02 beam.Width1 = 0.02 beam.FaceCamera = true beam.Color = ColorSequence.new(Config.ESP.BoxColor) beam.Enabled = false beam.Parent = tPart
-		data.TracerPart = tPart data.TracerBeam = beam
+local AimHeld = false
+UserInputService.InputBegan:Connect(function(input, gp)
+	if input.KeyCode == Config.MenuKey then Main.Visible = not Main.Visible end
+	if input.KeyCode == Config.AimKey then AimHeld = true end
+end)
+UserInputService.InputEnded:Connect(function(input) if input.KeyCode == Config.AimKey then AimHeld = false end end)
 
-		ESPInstances[player] = data
-	end
-
-	local function RemoveESP(player)
-		local data = ESPInstances[player] if not data then return end
-		if data.Box then data.Box:Destroy() end if data.NameGui then data.NameGui:Destroy() end if data.TracerPart then data.TracerPart:Destroy() end
-		ESPInstances[player] = nil
-	end
-
-	for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end) end
-	Players.PlayerAdded:Connect(function(p) CreateESP(p) p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end) end)
-	Players.PlayerRemoving:Connect(function(p) RemoveESP(p) end)
-
-	-- Interfaz KiciaHook
-	local ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "FanswareKiciaHook" ScreenGui.ResetOnSpawn = false ScreenGui.Parent = CoreGui
-
-	local Main = Instance.new("Frame") Main.Size = UDim2.fromOffset(560, 380) Main.Position = UDim2.fromScale(0.5, 0.5) Main.AnchorPoint = Vector2.new(0.5, 0.5) Main.BackgroundColor3 = Color3.fromRGB(16, 16, 20) Main.BorderSizePixel = 0 Main.Parent = ScreenGui
-	Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
-
-	local TopBar = Instance.new("Frame") TopBar.Size = UDim2.new(1, 0, 0, 36) TopBar.BackgroundColor3 = Color3.fromRGB(22, 22, 28) TopBar.BorderSizePixel = 0 TopBar.Parent = Main
-	Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
-	
-	local TopFix = Instance.new("Frame") TopFix.Size = UDim2.new(1, 0, 0, 6) TopFix.Position = UDim2.new(0, 0, 1, -6) TopFix.BackgroundColor3 = Color3.fromRGB(22, 22, 28) TopFix.BorderSizePixel = 0 TopFix.Parent = TopBar
-
-	local Title2 = Instance.new("TextLabel") Title2.Size = UDim2.new(1, -20, 1, 0) Title2.Position = UDim2.fromOffset(14, 0) Title2.BackgroundTransparency = 1 Title2.Text = "KICIAHOOK <font color=\"#55aaff\">// FANSWARE</font>" Title2.RichText = true Title2.TextColor3 = Color3.fromRGB(240, 240, 245) Title2.TextSize = 13 Title2.Font = Enum.Font.GothamBold Title2.TextXAlignment = Enum.TextXAlignment.Left Title2.Parent = TopBar
-
-	local Sidebar = Instance.new("ScrollingFrame") Sidebar.Size = UDim2.fromOffset(130, 320) Sidebar.Position = UDim2.fromOffset(12, 48) Sidebar.BackgroundTransparency = 1 Sidebar.BorderSizePixel = 0 Sidebar.ScrollBarThickness = 2 Sidebar.Parent = Main
-	local SidebarLayout = Instance.new("UIListLayout", Sidebar) SidebarLayout.Padding = UDim.new(0, 6)
-
-	local ContainerHolder = Instance.new("Frame") ContainerHolder.Size = UDim2.fromOffset(390, 320) ContainerHolder.Position = UDim2.fromOffset(155, 48) ContainerHolder.BackgroundColor3 = Color3.fromRGB(12, 12, 16) ContainerHolder.BorderSizePixel = 0 ContainerHolder.Parent = Main
-	Instance.new("UICorner", ContainerHolder).CornerRadius = UDim.new(0, 8)
-
-	local Tabs = {} local CurrentTabContent = nil
-
-	local function CreateTab(name)
-		local tabContent = Instance.new("ScrollingFrame") tabContent.Size = UDim2.new(1, -16, 1, -16) tabContent.Position = UDim2.fromOffset(8, 8) tabContent.BackgroundTransparency = 1 tabContent.BorderSizePixel = 0 tabContent.ScrollBarThickness = 3 tabContent.Visible = false tabContent.Parent = ContainerHolder
-		local layout = Instance.new("UIListLayout", tabContent) layout.Padding = UDim.new(0, 8)
-		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() tabContent.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 10) end)
-
-		local tabButton = Instance.new("TextButton") tabButton.Size = UDim2.new(1, 0, 0, 34) tabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 26) tabButton.BorderSizePixel = 0 tabButton.Text = name tabButton.TextColor3 = Color3.fromRGB(170, 170, 180) tabButton.TextSize = 12 tabButton.Font = Enum.Font.GothamMedium tabButton.Parent = Sidebar
-		Instance.new("UICorner", tabButton).CornerRadius = UDim.new(0, 6)
-
-		tabButton.MouseButton1Click:Connect(function()
-			for _, t in pairs(Tabs) do t.Content.Visible = false t.Button.BackgroundColor3 = Color3.fromRGB(20, 20, 26) t.Button.TextColor3 = Color3.fromRGB(170, 170, 180) end
-			tabContent.Visible = true tabButton.BackgroundColor3 = Color3.fromRGB(85, 170, 255) tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		end)
-
-		if not CurrentTabContent then CurrentTabContent = tabContent tabContent.Visible = true tabButton.BackgroundColor3 = Color3.fromRGB(85, 170, 255) tabButton.TextColor3 = Color3.fromRGB(255, 255, 255) end
-		table.insert(Tabs, {Button = tabButton, Content = tabContent})
-
-		local lib = {}
-		function lib:AddToggle(title, default, cb)
-			local holder = Instance.new("Frame", tabContent) holder.Size = UDim2.new(1, 0, 0, 36) holder.BackgroundColor3 = Color3.fromRGB(18, 18, 24) holder.BorderSizePixel = 0
-			Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
-			local label = Instance.new("TextLabel", holder) label.Size = UDim2.new(1, -50, 1, 0) label.Position = UDim2.fromOffset(10, 0) label.BackgroundTransparency = 1 label.Text = title label.TextColor3 = Color3.fromRGB(210, 210, 220) label.TextSize = 12 label.Font = Enum.Font.GothamMedium label.TextXAlignment = Enum.TextXAlignment.Left
-			local btn = Instance.new("TextButton", holder) btn.Size = UDim2.fromOffset(36, 18) btn.Position = UDim2.new(1, -44, 0.5, -9) btn.Text = "" btn.BorderSizePixel = 0
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-			local state = default or false
-			local function upd() btn.BackgroundColor3 = state and Color3.fromRGB(85, 170, 255) or Color3.fromRGB(45, 45, 55) end upd()
-			btn.MouseButton1Click:Connect(function() state = not state upd() cb(state) end)
+local TriggerCooldown = false
+RunService.RenderStepped:Connect(function()
+	-- Aimbot
+	if Config.Aimbot.Enabled and AimHeld then
+		local _, targetPart = GetClosestTarget()
+		if targetPart then
+			local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+			Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(Config.Aimbot.Smoothness, 0.01, 1))
 		end
-
-		function lib:AddDropdown(title, options, default, cb)
-			local holder = Instance.new("Frame", tabContent) holder.Size = UDim2.new(1, 0, 0, 52) holder.BackgroundColor3 = Color3.fromRGB(18, 18, 24) holder.BorderSizePixel = 0
-			Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
-			local label = Instance.new("TextLabel", holder) label.Size = UDim2.new(1, -20, 0, 24) label.Position = UDim2.fromOffset(10, 4) label.BackgroundTransparency = 1 label.Text = title label.TextColor3 = Color3.fromRGB(210, 210, 220) label.TextSize = 12 label.Font = Enum.Font.GothamMedium label.TextXAlignment = Enum.TextXAlignment.Left
-			local dropBtn = Instance.new("TextButton", holder) dropBtn.Size = UDim2.new(1, -20, 0, 22) dropBtn.Position = UDim2.fromOffset(10, 26) dropBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32) dropBtn.BorderSizePixel = 0 dropBtn.Text = "  " .. tostring(default) dropBtn.TextColor3 = Color3.fromRGB(255, 255, 255) dropBtn.TextSize = 11 dropBtn.Font = Enum.Font.Gotham dropBtn.TextXAlignment = Enum.TextXAlignment.Left
-			Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 4)
-			local idx = 1 for i, o in ipairs(options) do if o == default then idx = i break end end
-			dropBtn.MouseButton1Click:Connect(function()
-				idx = idx + 1 if idx > #options then idx = 1 end
-				local chosen = options[idx] dropBtn.Text = "  " .. tostring(chosen) cb(chosen)
-			end)
-		end
-		return lib
 	end
 
-	-- Menú Tabs
-	local t1 = CreateTab("Aimbot")
-	t1:AddToggle("Enable Aimbot", false, function(v) Config.Aimbot.Enabled = v end)
-	t1:AddToggle("Team Check", true, function(v) Config.Aimbot.TeamCheck = v end)
-	t1:AddToggle("Visible Check", true, function(v) Config.Aimbot.VisibleCheck = v end)
-	t1:AddDropdown("Target Part", {"Head", "Body", "Random"}, "Head", function(v) Config.Aimbot.TargetPart = v end)
+	-- TriggerBot
+	if Config.TriggerBot.Enabled and not TriggerCooldown then
+		local viewport = Camera.ViewportSize
+		local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
+		local params = RaycastParams.new() params.FilterType = Enum.RaycastFilterType.Exclude params.FilterDescendantsInstances = {LocalPlayer.Character}
+		local result = workspace:Raycast(ray.Origin, ray.Direction * 1500, params)
+		if result then
+			local char = result.Instance:FindFirstAncestorOfClass("Model")
+			local player = char and Players:GetPlayerFromCharacter(char)
+			if player and IsEnemy(player, Config.TriggerBot.TeamCheck) and IsAlive(char) then
+				TriggerCooldown = true FireRemote:FireServer(result.Position, result.Instance)
+				task.delay(0.08, function() TriggerCooldown = false end)
+			end
+		end
+	end
 
-	local t2 = CreateTab("Combat")
-	t2:AddToggle("Enable TriggerBot", false, function(v) Config.TriggerBot.Enabled = v end)
-	t2:AddToggle("Trigger Team Check", true, function(v) Config.TriggerBot.TeamCheck = v end)
-
-	local t3 = CreateTab("ESP")
-	t3:AddToggle("Enable ESP", false, function(v) Config.ESP.Enabled = v end)
-	t3:AddToggle("Team Check", true, function(v) Config.ESP.TeamCheck = v end)
-	t3:AddToggle("ESP Box", false, function(v) Config.ESP.Box = v end)
-	t3:AddToggle("ESP Skeleton", false, function(v) Config.ESP.Skeleton = v end)
-	t3:AddToggle("ESP Tracer", false, function(v) Config.ESP.Tracer = v end)
-	t3:AddToggle("ESP Name", false, function(v) Config.ESP.Name = v end)
-	t3:AddToggle("ESP Distance", false, function(v) Config.ESP.Distance = v end)
-	t3:AddDropdown("Box Color", {"Red", "Green", "Blue", "White"}, "Red", function(v)
-		if v == "Red" then Config.ESP.BoxColor = Color3.fromRGB(255, 70, 70)
-		elseif v == "Green" then Config.ESP.BoxColor = Color3.fromRGB(70, 255, 70)
-		elseif v == "Blue" then Config.ESP.BoxColor = Color3.fromRGB(70, 150, 255)
-		elseif v == "White" then Config.ESP.BoxColor = Color3.fromRGB(255, 255, 255) end
-	end)
-
-	UserInputService.InputBegan:Connect(function(input, gp)
-		if input.KeyCode == Config.MenuKey then MenuOpen = not MenuOpen Main.Visible = MenuOpen end
-		if input.KeyCode == Config.AimKey then AimHeld = true end
-	end)
-	UserInputService.InputEnded:Connect(function(input) if input.KeyCode == Config.AimKey then AimHeld = false end end)
-
-	lo
+	-- ESP Update
+	for player, data in pairs(ESPInstances) do
+		local char = GetCharacter(player)
+		local valid = Config.ESP.Enabled and char and IsAlive(char) and IsEnemy(player, Config.ESP.TeamCheck)
+		if not valid then
+			data.Box.Visible = false
+		else
+			data.Box.Adornee = char
+			data.Box.Visible = Config.ESP.Box
+		end
+	end
+end)
