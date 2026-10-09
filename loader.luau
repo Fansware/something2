@@ -19,6 +19,12 @@ pcall(function()
     if CoreGui:FindFirstChild("FanwareUI") then
         CoreGui.FanwareUI:Destroy()
     end
+    if CoreGui:FindFirstChild("FanwareNotify") then
+        CoreGui.FanwareNotify:Destroy()
+    end
+    if CoreGui:FindFirstChild("FanwareLoading") then
+        CoreGui.FanwareLoading:Destroy()
+    end
 end)
 
 --==============================================================
@@ -28,6 +34,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FanwareUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = CoreGui
 
 --==============================================================
@@ -62,6 +69,7 @@ end
 local NotifyGui = new("ScreenGui", {
     Name = "FanwareNotify",
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
     Parent = CoreGui
 })
 
@@ -109,6 +117,7 @@ NotifyGui:Destroy()
 local LoadGui = new("ScreenGui", {
     Name = "FanwareLoading",
     ResetOnSpawn = false,
+    IgnoreGuiInset = true,
     Parent = CoreGui
 })
 
@@ -165,8 +174,8 @@ local main = new("Frame", {
     BackgroundColor3 = Color3.fromRGB(18, 18, 24),
     BorderSizePixel = 0,
     Active = true,
-    Draggable = true,
     Visible = true,
+    ZIndex = 1,
 })
 corner(main, 12)
 stroke(main, Color3.fromRGB(90, 90, 110), 1)
@@ -177,6 +186,7 @@ local topBar = new("Frame", {
     Size = UDim2.new(1, 0, 0, 40),
     BackgroundColor3 = Color3.fromRGB(24, 24, 32),
     BorderSizePixel = 0,
+    ZIndex = 2,
 })
 corner(topBar, 12)
 new("Frame", {
@@ -185,6 +195,7 @@ new("Frame", {
     Position = UDim2.new(0, 0, 1, -12),
     BackgroundColor3 = Color3.fromRGB(24, 24, 32),
     BorderSizePixel = 0,
+    ZIndex = 2,
 })
 
 new("TextLabel", {
@@ -197,6 +208,7 @@ new("TextLabel", {
     Font = Enum.Font.GothamBold,
     TextSize = 15,
     TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 3,
 })
 
 new("TextLabel", {
@@ -209,14 +221,16 @@ new("TextLabel", {
     Font = Enum.Font.Gotham,
     TextSize = 11,
     TextXAlignment = Enum.TextXAlignment.Right,
+    ZIndex = 3,
 })
 
 -- Tab bar
 local tabBar = new("Frame", {
     Parent = main,
-    Size = UDim2.new(0, 130, 1, -50),
-    Position = UDim2.new(0, 10, 0, 45),
+    Size = UDim2.new(0, 130, 1, -60),
+    Position = UDim2.new(0, 10, 0, 50),
     BackgroundTransparency = 1,
+    ZIndex = 2,
 })
 
 -- Content area
@@ -226,12 +240,13 @@ local content = new("Frame", {
     Position = UDim2.new(0, 150, 0, 50),
     BackgroundColor3 = Color3.fromRGB(22, 22, 30),
     BorderSizePixel = 0,
+    ZIndex = 2,
 })
 corner(content, 8)
 stroke(content, Color3.fromRGB(45, 45, 55), 1)
 
 --==============================================================
--- TAB SYSTEM
+-- TAB SYSTEM (FIXED)
 --==============================================================
 local tabs = {}
 local activeTab = nil
@@ -250,8 +265,9 @@ local function createPage(name)
         ScrollBarThickness = 3,
         ScrollBarImageColor3 = Color3.fromRGB(90, 90, 110),
         Visible = false,
+        ZIndex = 3,
     })
-    local layout = new("UIListLayout", {
+    new("UIListLayout", {
         Parent = page,
         Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder,
@@ -269,7 +285,14 @@ local function selectTab(name)
     activeTab = name
 end
 
-for _, name in ipairs(tabNames) do
+-- ✅ UIListLayout on tabBar so buttons stack vertically instead of overlapping
+new("UIListLayout", {
+    Parent = tabBar,
+    Padding = UDim.new(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+})
+
+for i, name in ipairs(tabNames) do
     local btn = new("TextButton", {
         Parent = tabBar,
         Size = UDim2.new(1, 0, 0, 34),
@@ -280,6 +303,8 @@ for _, name in ipairs(tabNames) do
         Font = Enum.Font.GothamMedium,
         TextSize = 13,
         AutoButtonColor = false,
+        LayoutOrder = i,
+        ZIndex = 3,
     })
     corner(btn, 8)
 
@@ -310,6 +335,7 @@ local function makeToggle(page, label, default, callback)
         Size = UDim2.new(1, 0, 0, 30),
         BackgroundColor3 = Color3.fromRGB(28, 28, 36),
         BorderSizePixel = 0,
+        ZIndex = 3,
     })
     corner(holder, 6)
     addRow(page, 30)
@@ -324,6 +350,7 @@ local function makeToggle(page, label, default, callback)
         Font = Enum.Font.Gotham,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4,
     })
 
     local state = default or false
@@ -334,6 +361,7 @@ local function makeToggle(page, label, default, callback)
         Position = UDim2.new(1, -50, 0.5, -10),
         BackgroundColor3 = state and Color3.fromRGB(50, 90, 200) or Color3.fromRGB(60, 60, 70),
         BorderSizePixel = 0,
+        ZIndex = 4,
     })
     corner(track, 10)
 
@@ -343,6 +371,7 @@ local function makeToggle(page, label, default, callback)
         Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0,
+        ZIndex = 5,
     })
     corner(knob, 8)
 
@@ -351,6 +380,7 @@ local function makeToggle(page, label, default, callback)
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
+        ZIndex = 6,
     })
 
     click.MouseButton1Click:Connect(function()
@@ -380,6 +410,7 @@ local function makeDropdown(page, label, options, default, callback)
         Size = UDim2.new(1, 0, 0, 30),
         BackgroundColor3 = Color3.fromRGB(28, 28, 36),
         BorderSizePixel = 0,
+        ZIndex = 3,
     })
     corner(holder, 6)
     addRow(page, 30)
@@ -394,6 +425,7 @@ local function makeDropdown(page, label, options, default, callback)
         Font = Enum.Font.Gotham,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4,
     })
 
     local selected = default or options[1]
@@ -408,6 +440,7 @@ local function makeDropdown(page, label, options, default, callback)
         TextColor3 = Color3.fromRGB(230, 230, 235),
         Font = Enum.Font.Gotham,
         TextSize = 12,
+        ZIndex = 4,
     })
     corner(btn, 6)
 
@@ -423,7 +456,7 @@ local function makeDropdown(page, label, options, default, callback)
                 Position = UDim2.new(1, -130, 1, 2),
                 BackgroundColor3 = Color3.fromRGB(30, 30, 38),
                 BorderSizePixel = 0,
-                ZIndex = 10,
+                ZIndex = 20,
             })
             corner(list, 6)
             stroke(list, Color3.fromRGB(70, 70, 85), 1)
@@ -438,7 +471,7 @@ local function makeDropdown(page, label, options, default, callback)
                     TextColor3 = Color3.fromRGB(220, 220, 225),
                     Font = Enum.Font.Gotham,
                     TextSize = 12,
-                    ZIndex = 11,
+                    ZIndex = 21,
                 })
                 ob.MouseButton1Click:Connect(function()
                     selected = opt
@@ -465,6 +498,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Size = UDim2.new(1, 0, 0, 44),
         BackgroundColor3 = Color3.fromRGB(28, 28, 36),
         BorderSizePixel = 0,
+        ZIndex = 3,
     })
     corner(holder, 6)
     addRow(page, 44)
@@ -479,6 +513,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Font = Enum.Font.Gotham,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4,
     })
 
     local val = default or min
@@ -493,6 +528,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Font = Enum.Font.GothamMedium,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Right,
+        ZIndex = 4,
     })
 
     local bar = new("Frame", {
@@ -501,6 +537,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Position = UDim2.new(0, 10, 1, -14),
         BackgroundColor3 = Color3.fromRGB(45, 45, 55),
         BorderSizePixel = 0,
+        ZIndex = 4,
     })
     corner(bar, 3)
 
@@ -509,6 +546,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Size = UDim2.new((val - min) / (max - min), 0, 1, 0),
         BackgroundColor3 = Color3.fromRGB(50, 90, 200),
         BorderSizePixel = 0,
+        ZIndex = 5,
     })
     corner(fill, 3)
 
@@ -553,6 +591,7 @@ local function makeKeybind(page, label, default, callback)
         Size = UDim2.new(1, 0, 0, 30),
         BackgroundColor3 = Color3.fromRGB(28, 28, 36),
         BorderSizePixel = 0,
+        ZIndex = 3,
     })
     corner(holder, 6)
     addRow(page, 30)
@@ -567,6 +606,7 @@ local function makeKeybind(page, label, default, callback)
         Font = Enum.Font.Gotham,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4,
     })
 
     local key = default
@@ -582,6 +622,7 @@ local function makeKeybind(page, label, default, callback)
         TextColor3 = Color3.fromRGB(230, 230, 235),
         Font = Enum.Font.Gotham,
         TextSize = 12,
+        ZIndex = 4,
     })
     corner(btn, 6)
 
@@ -658,7 +699,6 @@ makeSlider(misc, "  └ Fly Speed", 1, 100, 50)
 --==============================================================
 local settings = tabs["Settings"].page
 
-
 makeToggle(settings, "Notify when someone is using cheats (rival)", true)
 makeToggle(settings, "Auto save and auto execute after", false)
 makeKeybind(settings, "  └ Auto Save Keybind", nil)
@@ -674,6 +714,7 @@ local function makeButton(page, label, callback)
         Font = Enum.Font.GothamMedium,
         TextSize = 13,
         AutoButtonColor = true,
+        ZIndex = 3,
     })
     corner(btn, 6)
     addRow(page, 32)
@@ -684,16 +725,14 @@ end
 
 makeButton(settings, "Import Setting", function()
     print("[Fanware] Import Setting pressed")
-    -- Add your import logic here
 end)
 
 makeButton(settings, "Export Setting", function()
     print("[Fanware] Export Setting pressed")
-    -- Add your export logic here
 end)
 
 -- Info label
-local info = new("TextLabel", {
+new("TextLabel", {
     Parent = settings,
     Size = UDim2.new(1, 0, 0, 60),
     BackgroundTransparency = 1,
@@ -704,6 +743,7 @@ local info = new("TextLabel", {
     TextWrapped = true,
     TextXAlignment = Enum.TextXAlignment.Left,
     LayoutOrder = 999,
+    ZIndex = 3,
 })
 addRow(settings, 60)
 
@@ -718,7 +758,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 --==============================================================
--- DRAG (fallback for executors without Draggable support)
+-- DRAG
 --==============================================================
 do
     local dragging, dragStart, startPos
