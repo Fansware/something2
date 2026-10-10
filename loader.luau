@@ -689,6 +689,7 @@ local Features = {
     PowerVal = 1,
     Fly = false,
     FlySpeed = 50,
+    UnlockAll = false,
     NotifyRivals = true
 }
 
@@ -699,7 +700,6 @@ LocalPlayer.CharacterAdded:Connect(function()
     aimbotAllowedTime = tick() + 5
 end)
 
--- Detector de Lobby / Tercera Persona (si no hay HumanoidRootPart o la cámara está muy alejada)
 local function InLobbyOrSafe()
     local char = LocalPlayer.Character
     if not char then return true end
@@ -1141,6 +1141,17 @@ makeSlider(misc, "  └ Power", 1, 10, 1, function(v) Features.PowerVal = v end)
 makeToggle(misc, "Fly", false, function(v) Features.Fly = v end)
 makeSlider(misc, "  └ Fly Speed", 1, 100, 50, function(v) Features.FlySpeed = v end)
 
+-- Nuevo Unlock All (Skin Changer / Cosmetics) en la pestaña Misc.
+makeToggle(misc, "Unlock All (Skins)", false, function(v)
+    Features.UnlockAll = v
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("ShooterRemotes")
+        if remotes and remotes:FindFirstChild("UnlockAllSkins") then
+            remotes.UnlockAllSkins:FireServer(v)
+        end
+    end)
+end)
+
 --==============================================================
 -- SETTINGS TAB
 --==============================================================
@@ -1242,4 +1253,4 @@ do
     end)
 end
 
-print("[Fanware] Fully Loaded with Menu & Lobby Protections + 5s Spawn Delay.")
+print("[Fanware] Fully Loaded with Unlock All in Misc tab.")
