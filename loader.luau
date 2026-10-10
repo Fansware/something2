@@ -1,8 +1,7 @@
 --==============================================================
--- Fanware | Best script
+-- Fanware | Best script (fixed v2.6 — ultra camera+mouse, anti-katana cached)
 -- Discord: https://discord.gg/g9UAV8xC2p
 --==============================================================
-
 -- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -11,9 +10,9 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
 --==============================================================
 -- CLEANUP OLD INSTANCES
@@ -67,7 +66,7 @@ local function stroke(parent, color, thickness)
 end
 
 --==============================================================
--- 1. WELCOME NOTIFICATION (bottom right)
+-- 1. WELCOME NOTIFICATION
 --==============================================================
 local NotifyGui = new("ScreenGui", {
     Name = "FanwareNotify",
@@ -103,13 +102,11 @@ TweenService:Create(notify, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {
     Position = UDim2.new(1, -320, 1, -100)
 }):Play()
 
-task.wait(4)
-
+task.wait(3)
 TweenService:Create(notify, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {
     Position = UDim2.new(1, 320, 1, -100)
 }):Play()
-
-task.wait(0.6)
+task.wait(0.5)
 NotifyGui:Destroy()
 
 --==============================================================
@@ -160,7 +157,7 @@ task.spawn(function()
     end
 end)
 
-task.wait(5)
+task.wait(2)
 spinning = false
 LoadGui:Destroy()
 
@@ -169,8 +166,8 @@ LoadGui:Destroy()
 --==============================================================
 local main = new("Frame", {
     Parent = ScreenGui,
-    Size = UDim2.new(0, 520, 0, 340),
-    Position = UDim2.new(0.5, -260, 0.5, -170),
+    Size = UDim2.new(0, 520, 0, 360),
+    Position = UDim2.new(0.5, -260, 0.5, -180),
     BackgroundColor3 = Color3.fromRGB(18, 18, 24),
     BorderSizePixel = 0,
     Active = true,
@@ -188,6 +185,7 @@ local topBar = new("Frame", {
     ZIndex = 2,
 })
 corner(topBar, 12)
+
 new("Frame", {
     Parent = topBar,
     Size = UDim2.new(1, 0, 0, 12),
@@ -215,7 +213,7 @@ new("TextLabel", {
     Size = UDim2.new(0, 120, 1, 0),
     Position = UDim2.new(1, -130, 0, 0),
     BackgroundTransparency = 1,
-    Text = "RightShift = toggle",
+    Text = "RShift menu | P aim | Q ultra",
     TextColor3 = Color3.fromRGB(140, 140, 155),
     Font = Enum.Font.Gotham,
     TextSize = 11,
@@ -302,15 +300,12 @@ for i, name in ipairs(tabNames) do
         ZIndex = 3,
     })
     corner(btn, 8)
-
     local page = createPage(name)
     tabs[name] = {button = btn, page = page}
-
     btn.MouseButton1Click:Connect(function()
         selectTab(name)
     end)
 end
-
 selectTab("Combat")
 
 --==============================================================
@@ -348,7 +343,6 @@ local function makeToggle(page, label, default, callback)
     })
 
     local state = default or false
-
     local track = new("Frame", {
         Parent = holder,
         Size = UDim2.new(0, 40, 0, 20),
@@ -425,7 +419,6 @@ local function makeDropdown(page, label, options, default, callback)
     })
 
     local selected = default or options[1]
-
     local btn = new("TextButton", {
         Parent = holder,
         Size = UDim2.new(0, 120, 0, 22),
@@ -441,7 +434,6 @@ local function makeDropdown(page, label, options, default, callback)
     corner(btn, 6)
 
     local open = false
-
     local function closeMenu()
         if activeDropdownList then
             activeDropdownList:Destroy()
@@ -456,10 +448,8 @@ local function makeDropdown(page, label, options, default, callback)
         else
             if activeDropdownList then activeDropdownList:Destroy() end
             open = true
-
             local absPos = btn.AbsolutePosition
             local absSize = btn.AbsoluteSize
-
             local list = new("Frame", {
                 Parent = ScreenGui,
                 Size = UDim2.new(0, absSize.X, 0, #options * 24),
@@ -470,12 +460,10 @@ local function makeDropdown(page, label, options, default, callback)
             })
             corner(list, 6)
             stroke(list, Color3.fromRGB(70, 70, 85), 1)
-
-            local layout = new("UIListLayout", {
+            new("UIListLayout", {
                 Parent = list,
                 SortOrder = Enum.SortOrder.LayoutOrder,
             })
-
             for _, opt in ipairs(options) do
                 local ob = new("TextButton", {
                     Parent = list,
@@ -530,7 +518,6 @@ local function makeSlider(page, label, min, max, default, callback)
     })
 
     local val = default or min
-
     local valLabel = new("TextLabel", {
         Parent = holder,
         Size = UDim2.new(0.4, -10, 0, 18),
@@ -556,7 +543,7 @@ local function makeSlider(page, label, min, max, default, callback)
 
     local fill = new("Frame", {
         Parent = bar,
-        Size = UDim2.new((val - min) / (max - min), 0, 1, 0),
+        Size = UDim2.new((val - min) / math.max(max - min, 1), 0, 1, 0),
         BackgroundColor3 = Color3.fromRGB(50, 90, 200),
         BorderSizePixel = 0,
         ZIndex = 5,
@@ -564,19 +551,16 @@ local function makeSlider(page, label, min, max, default, callback)
     corner(fill, 3)
 
     local dragging = false
-
     bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
         end
     end)
-
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
@@ -591,7 +575,7 @@ local function makeSlider(page, label, min, max, default, callback)
         Get = function() return val end,
         Set = function(v)
             val = v
-            fill.Size = UDim2.new((v - min) / (max - min), 0, 1, 0)
+            fill.Size = UDim2.new((v - min) / math.max(max - min, 1), 0, 1, 0)
             valLabel.Text = tostring(v)
             if callback then callback(v) end
         end
@@ -624,7 +608,6 @@ local function makeKeybind(page, label, default, callback)
 
     local key = default
     local waiting = false
-
     local btn = new("TextButton", {
         Parent = holder,
         Size = UDim2.new(0, 90, 0, 22),
@@ -660,19 +643,54 @@ local function makeKeybind(page, label, default, callback)
     }
 end
 
+local function makeButton(page, label, callback)
+    local btn = new("TextButton", {
+        Parent = page,
+        Size = UDim2.new(1, 0, 0, 32),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 52),
+        BorderSizePixel = 0,
+        Text = label,
+        TextColor3 = Color3.fromRGB(230, 230, 235),
+        Font = Enum.Font.GothamMedium,
+        TextSize = 13,
+        AutoButtonColor = true,
+        ZIndex = 3,
+    })
+    corner(btn, 6)
+    addRow(page, 32)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
 --==============================================================
--- SCRIPT FUNCTIONALITY IMPLEMENTATION
+-- FEATURES
 --==============================================================
 local Features = {
     Aimbot = false,
     AimbotTarget = "Head",
     AimbotSmoothness = 5,
+    AimbotFOV = 350,
+    AimbotMaxDist = 800,
+    AimbotWallCheck = true,
+
     TriggerBot = false,
-    SilentAim = false,
-    SilentAimTarget = "Head",
+    TriggerBotDelay = 0.05,
+    TriggerBotWallCheck = true,
+
+    AntiKatana = false,
+    AntiKatanaRange = 25,
+
     DeathLock = false,
     DeathLockTarget = "Head",
+    DeathLockWallCheck = true,
+    DeathLockUltra = false,
+    DeathLockUltraTarget = "Mixed",
+    DeathLockUltraWallCheck = true,
+    AimbotStickiness = 5,
+
     AutoShoot = false,
+    AutoShootDelay = 0.07,
+
     ESP = false,
     Boxes = false,
     Skeleton = false,
@@ -681,25 +699,30 @@ local Features = {
     ShowNames = false,
     TracerColor = Color3.fromRGB(255, 255, 255),
     BoxColor = Color3.fromRGB(255, 255, 255),
-    AutoKill = false,
-    RageBot = false,
+
+    -- Rage (new)
+    TPBehind = false,
+    TPUp = false,
+    ShootThroughWalls = false,
     InstaBackstab = false,
-    MatrixSlide = false,
-    SlidePower = false,
-    PowerVal = 1,
+
+    SpeedHack = false,
+    SpeedPower = 60,
+
+    Noclip = false,
+
     Fly = false,
     FlySpeed = 50,
-    NotifyRivals = true
+    SpinBot = false,
+    SpinSpeed = 15,
+    NotifyRivals = true,
 }
 
--- Control de 5 segundos de espera al reaparecer/cambiar de arma
 local aimbotAllowedTime = tick() + 5
-
 LocalPlayer.CharacterAdded:Connect(function()
     aimbotAllowedTime = tick() + 5
 end)
 
--- Detector de Lobby / Tercera Persona (si no hay HumanoidRootPart o la cámara está muy alejada)
 local function InLobbyOrSafe()
     local char = LocalPlayer.Character
     if not char then return true end
@@ -710,8 +733,42 @@ local function InLobbyOrSafe()
     return false
 end
 
-local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
-local FireRemote = RemoteFolder and RemoteFolder:FindFirstChild("Fire")
+-- Remote discovery
+local function FindFireRemote()
+    local candidates = {
+        {"ShooterRemotes", "Fire"},
+        {"Remotes", "Fire"},
+        {"Remotes", "Shoot"},
+        {"WeaponRemotes", "Fire"},
+        {"Events", "Fire"},
+        {"GunRemotes", "Fire"},
+    }
+    for _, path in ipairs(candidates) do
+        local folder = ReplicatedStorage:FindFirstChild(path[1])
+        if folder then
+            local rem = folder:FindFirstChild(path[2])
+            if rem and (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then
+                return rem
+            end
+        end
+    end
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local n = string.lower(obj.Name)
+            if n == "fire" or n == "shoot" or n == "shootgun" or n == "fireweapon" or n == "checkfire" or n == "fireserver" then
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+local FireRemote = FindFireRemote()
+if FireRemote then
+    print("[Fanware] Fire remote:", FireRemote:GetFullName())
+else
+    warn("[Fanware] No Fire remote found")
+end
 
 local function GetCharacter(player)
     return player and player.Character
@@ -727,10 +784,12 @@ local function IsAlive(character)
 end
 
 local function GetRoot(character)
+    if not character then return nil end
     return character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
 end
 
 local function GetPart(character, targetType)
+    if not character then return nil end
     if targetType == "Head" then
         return character:FindFirstChild("Head") or GetRoot(character)
     elseif targetType == "Torso" then
@@ -740,6 +799,7 @@ local function GetPart(character, targetType)
     end
 end
 
+-- ignore team always for rage TPs
 local function IsEnemy(player)
     if player == LocalPlayer then return false end
     if LocalPlayer.Team and player.Team then
@@ -748,24 +808,76 @@ local function IsEnemy(player)
     return true
 end
 
-local function GetClosestTarget(targetType)
+local function IsAnyPlayer(player)
+    return player ~= LocalPlayer
+end
+
+-- Wallcheck with larger tolerance (more studs / ignore tiny hits)
+local function HasWallBetween(fromPos, toPos, ignoreList)
+    local direction = toPos - fromPos
+    local distance = direction.Magnitude
+    if distance < 1 then return false end
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = ignoreList or {LocalPlayer.Character}
+    params.IgnoreWater = true
+    -- cast slightly short so we don't count the target surface itself
+    local result = Workspace:Raycast(fromPos, direction.Unit * (distance - 1.5), params)
+    if not result then return false end
+    local hitModel = result.Instance:FindFirstAncestorOfClass("Model")
+    if hitModel and Players:GetPlayerFromCharacter(hitModel) then
+        return false
+    end
+    -- ignore thin / non-collidable junk
+    if result.Instance.CanCollide == false or result.Instance.Transparency >= 0.9 then
+        return false
+    end
+    return true
+end
+
+local function IsVisible(part, fromCamera)
+    if not part then return false end
+    local origin
+    if fromCamera then
+        origin = Camera.CFrame.Position
+    else
+        local r = GetRoot(LocalPlayer.Character)
+        origin = r and r.Position
+    end
+    if not origin then return false end
+    local ignore = {LocalPlayer.Character}
+    local targetChar = part:FindFirstAncestorOfClass("Model")
+    if targetChar then table.insert(ignore, targetChar) end
+    return not HasWallBetween(origin, part.Position, ignore)
+end
+
+-- Closest target with larger recognition radius
+local function GetClosestTarget(targetType, maxFOV, maxDist, wallCheck, useCameraOrigin, ignoreTeam)
     local mousePos = UserInputService:GetMouseLocation()
     local closestPlayer, closestPart = nil, nil
-    local shortestDist = math.huge
+    local shortestDist = maxFOV or math.huge
+    local myRoot = GetRoot(LocalPlayer.Character)
+    local origin = (useCameraOrigin and Camera.CFrame.Position) or (myRoot and myRoot.Position)
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if IsEnemy(player) then
+        local valid = ignoreTeam and IsAnyPlayer(player) or IsEnemy(player)
+        if valid then
             local char = GetCharacter(player)
             if char and IsAlive(char) then
                 local part = GetPart(char, targetType)
                 if part then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and screenPos.Z > 0 then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            closestPlayer = player
-                            closestPart = part
+                    local dist3d = origin and (part.Position - origin).Magnitude or 0
+                    if not maxDist or dist3d <= maxDist then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if onScreen and screenPos.Z > 0 then
+                            local dist2d = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                            if dist2d < shortestDist then
+                                if not wallCheck or IsVisible(part, useCameraOrigin) then
+                                    shortestDist = dist2d
+                                    closestPlayer = player
+                                    closestPart = part
+                                end
+                            end
                         end
                     end
                 end
@@ -775,12 +887,35 @@ local function GetClosestTarget(targetType)
     return closestPlayer, closestPart
 end
 
--- Drawing ESP Objects Management
-local DrawingESP = {}
+-- pure 3D closest (for TP / shoot through walls)
+local function GetClosestPlayer3D(ignoreTeam, maxDist)
+    local myRoot = GetRoot(LocalPlayer.Character)
+    if not myRoot then return nil, nil end
+    local closest, closestRoot, best = nil, nil, maxDist or 9999
+    for _, player in ipairs(Players:GetPlayers()) do
+        local valid = ignoreTeam and IsAnyPlayer(player) or IsEnemy(player)
+        if valid then
+            local char = GetCharacter(player)
+            if char and IsAlive(char) then
+                local root = GetRoot(char)
+                if root then
+                    local d = (root.Position - myRoot.Position).Magnitude
+                    if d < best then
+                        best = d
+                        closest = player
+                        closestRoot = root
+                    end
+                end
+            end
+        end
+    end
+    return closest, closestRoot
+end
 
+-- Drawing ESP
+local DrawingESP = {}
 local function CreateDrawingESP(player)
     if player == LocalPlayer or DrawingESP[player] then return end
-
     local box = Drawing.new("Square")
     box.Visible = false
     box.Thickness = 1.5
@@ -812,7 +947,6 @@ local function CreateDrawingESP(player)
         line.Thickness = 1.5
         line.Color = Features.BoxColor
     end
-
     DrawingESP[player] = {Box = box, Tracer = tracer, Text = infoText, Skeleton = skeletonLines}
 end
 
@@ -822,9 +956,7 @@ local function RemoveDrawingESP(player)
         if data.Box then data.Box:Remove() end
         if data.Tracer then data.Tracer:Remove() end
         if data.Text then data.Text:Remove() end
-        for _, line in pairs(data.Skeleton) do
-            line:Remove()
-        end
+        for _, line in pairs(data.Skeleton) do line:Remove() end
         DrawingESP[player] = nil
     end
 end
@@ -839,34 +971,160 @@ Players.PlayerAdded:Connect(function(p)
 end)
 Players.PlayerRemoving:Connect(RemoveDrawingESP)
 
--- Main Loop
-local triggerCooldown = false
-local flyBodyVelocity, flyBodyGyro
+-- Anti Katana (RIVALS) — cached scan so it is not laggy
+local katanaCache = {} -- [player] = {has = bool, root = Part?, expire = tick}
+local KATANA_CACHE_TTL = 0.35
 
-RunService.RenderStepped:Connect(function()
-    -- 1. Mouse-based Aimbot Logic (Con restricciones de Menú, Lobby y 5s de espera)
-    if Features.Aimbot and main.Visible == false and not InLobbyOrSafe() then
-        local _, targetPart = GetClosestTarget(Features.AimbotTarget)
-        if targetPart then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-            if onScreen then
-                local mousePos = UserInputService:GetMouseLocation()
-                local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
-                local delta = targetScreen - mousePos
-                local smooth = math.clamp(Features.AimbotSmoothness, 1, 20)
-                if mousemoverel then
-                    mousemoverel(delta.X / smooth, delta.Y / smooth)
+local function PlayerHasKatanaFast(player)
+    local now = tick()
+    local entry = katanaCache[player]
+    if entry and entry.expire > now then
+        return entry.has, entry.root
+    end
+    local has = false
+    local root = nil
+    local char = player and player.Character
+    if char then
+        root = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+        -- equipped tool only (cheap) — backpack check only every few refreshes
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then
+            local n = string.lower(tool.Name)
+            if n:find("katana") or n:find("saber") then
+                has = true
+            end
+        end
+        if not has then
+            -- light name scan on direct children only
+            for _, obj in ipairs(char:GetChildren()) do
+                if obj:IsA("Tool") then
+                    local n = string.lower(obj.Name)
+                    if n:find("katana") or n:find("saber") then
+                        has = true
+                        break
+                    end
                 end
             end
         end
     end
+    katanaCache[player] = {has = has, root = root, expire = now + KATANA_CACHE_TTL}
+    return has, root
+end
 
-    -- 2. Death Lock Logic (También restringido)
-    if Features.DeathLock and main.Visible == false and not InLobbyOrSafe() then
-        local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
-        if targetPart then
+Players.PlayerRemoving:Connect(function(p)
+    katanaCache[p] = nil
+end)
+
+local lastKatanaScan = 0
+local cachedKatanaNear = false
+
+local function KatanaNearby()
+    if not Features.AntiKatana then
+        cachedKatanaNear = false
+        return false
+    end
+    local now = tick()
+    -- throttle full scan to ~8 Hz
+    if now - lastKatanaScan < 0.12 then
+        return cachedKatanaNear
+    end
+    lastKatanaScan = now
+    local myRoot = GetRoot(LocalPlayer.Character)
+    if not myRoot then
+        cachedKatanaNear = false
+        return false
+    end
+    local range = Features.AntiKatanaRange or 25
+    local rangeSq = range * range
+    local myPos = myRoot.Position
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and IsEnemy(player) then
+            local has, root = PlayerHasKatanaFast(player)
+            if has and root then
+                local d = root.Position - myPos
+                if d.X*d.X + d.Y*d.Y + d.Z*d.Z <= rangeSq then
+                    cachedKatanaNear = true
+                    return true
+                end
+            end
+        end
+    end
+    cachedKatanaNear = false
+    return false
+end
+
+local function FireAt(part)
+    if not part then return end
+    if FireRemote then
+        pcall(function() FireRemote:FireServer(part.Position, part) end)
+        pcall(function() FireRemote:FireServer(part.Position) end)
+        pcall(function() FireRemote:FireServer(part) end)
+        pcall(function() FireRemote:FireServer(CFrame.new(part.Position)) end)
+    end
+end
+
+local function DoClick()
+    pcall(function() if mouse1click then mouse1click() end end)
+    pcall(function()
+        if mouse1press then
+            mouse1press()
+            task.wait(0.015)
+            mouse1release()
+        end
+    end)
+end
+
+-- Main Loop
+local triggerCooldown = false
+local autoShootCooldown = false
+local shootWallsCooldown = false
+local flyBodyVelocity, flyBodyGyro
+local lastTPBehind, lastTPUp = 0, 0
+
+RunService.RenderStepped:Connect(function()
+    local menuOpen = main.Visible
+    local safe = InLobbyOrSafe()
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and GetRoot(myChar)
+
+    -- 1. Aimbot (stickiness 1-10 = how hard it sticks to the part)
+    if Features.Aimbot and not menuOpen and not safe then
+        local _, targetPart = GetClosestTarget(
+            Features.AimbotTarget,
+            Features.AimbotFOV,
+            Features.AimbotMaxDist,
+            Features.AimbotWallCheck,
+            true,
+            false
+        )
+        if targetPart and mousemoverel then
             local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-            if onScreen and mousemoverel then
+            if onScreen then
+                local mousePos = UserInputService:GetMouseLocation()
+                local delta = Vector2.new(screenPos.X, screenPos.Y) - mousePos
+                local smooth = math.clamp(Features.AimbotSmoothness, 1, 20)
+                -- stickiness: 1 = soft, 10 = almost snap (divides smooth)
+                local stick = math.clamp(Features.AimbotStickiness or 5, 1, 10)
+                local factor = smooth / (stick * 0.85)
+                if factor < 0.35 then factor = 0.35 end
+                mousemoverel(delta.X / factor, delta.Y / factor)
+            end
+        end
+    end
+
+    -- 2. Death Lock
+    if Features.DeathLock and not menuOpen and not safe then
+        local _, targetPart = GetClosestTarget(
+            Features.DeathLockTarget,
+            500,
+            900,
+            Features.DeathLockWallCheck,
+            true,
+            false
+        )
+        if targetPart and mousemoverel then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen then
                 local mousePos = UserInputService:GetMouseLocation()
                 local delta = Vector2.new(screenPos.X, screenPos.Y) - mousePos
                 mousemoverel(delta.X, delta.Y)
@@ -874,32 +1132,98 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 3. TriggerBot & Auto Shoot
-    if (Features.TriggerBot or Features.AutoShoot) and main.Visible == false and not InLobbyOrSafe() and not triggerCooldown then
+    -- 2b. Death Lock ULTRA — camera + mouse sticky lock
+    if Features.DeathLockUltra and not menuOpen and not safe then
+        local tgtMode = Features.DeathLockUltraTarget or "Mixed"
+        local partType = tgtMode
+        if tgtMode == "Mixed" then
+            partType = (math.floor(tick() * 4) % 2 == 0) and "Head" or "Torso"
+        end
+        local _, targetPart = GetClosestTarget(
+            partType,
+            900,
+            1500,
+            Features.DeathLockUltraWallCheck,
+            true,
+            false
+        )
+        if targetPart then
+            local cam = Camera
+            local origin = cam.CFrame.Position
+            local goal = CFrame.lookAt(origin, targetPart.Position)
+            -- hard camera stick
+            cam.CFrame = cam.CFrame:Lerp(goal, 0.85)
+            -- mouse stick (full pull, slight clamp so it doesn't overshoot wildly)
+            if mousemoverel then
+                local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
+                if onScreen and screenPos.Z > 0 then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local dx = screenPos.X - mousePos.X
+                    local dy = screenPos.Y - mousePos.Y
+                    -- full sticky: almost 1:1 mouse move toward target
+                    if math.abs(dx) > 0.5 or math.abs(dy) > 0.5 then
+                        mousemoverel(dx * 0.95, dy * 0.95)
+                    end
+                end
+            end
+        end
+    end
+
+    -- 3. Anti Katana — hold fire if enemy katana is in range (deflect zone)
+    local katanaNear = false
+    if Features.AntiKatana and not safe then
+        katanaNear = KatanaNearby()
+    end
+
+    -- 4. TriggerBot
+    if Features.TriggerBot and not menuOpen and not safe and not triggerCooldown and not katanaNear then
         local viewport = Camera.ViewportSize
         local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.FilterDescendantsInstances = {LocalPlayer.Character}
-        local result = Workspace:Raycast(ray.Origin, ray.Direction * 1500, params)
+        local result = Workspace:Raycast(ray.Origin, ray.Direction * 2500, params)
         if result then
             local char = result.Instance:FindFirstAncestorOfClass("Model")
             local player = char and Players:GetPlayerFromCharacter(char)
             if player and IsEnemy(player) and IsAlive(char) then
-                triggerCooldown = true
-                if FireRemote then
-                    pcall(function() FireRemote:FireServer(result.Position, result.Instance) end)
+                if not Features.TriggerBotWallCheck or IsVisible(result.Instance, true) then
+                    triggerCooldown = true
+                    DoClick()
+                    FireAt(result.Instance)
+                    task.delay(Features.TriggerBotDelay, function()
+                        triggerCooldown = false
+                    end)
                 end
-                task.delay(0.08, function() triggerCooldown = false end)
             end
         end
     end
 
-    -- 4. Drawing ESP Updates
+    -- 5. AutoShoot
+    if Features.AutoShoot and not menuOpen and not safe and not autoShootCooldown and not katanaNear then
+        local _, part = GetClosestTarget(
+            Features.AimbotTarget or "Head",
+            Features.AimbotFOV or 350,
+            900,
+            Features.AimbotWallCheck,
+            true,
+            false
+        )
+        if part then
+            autoShootCooldown = true
+            DoClick()
+            FireAt(part)
+            task.delay(Features.AutoShootDelay, function()
+                autoShootCooldown = false
+            end)
+        end
+    end
+
+    -- 6. ESP
     for player, data in pairs(DrawingESP) do
         local char = GetCharacter(player)
         local valid = Features.ESP and char and IsAlive(char) and IsEnemy(player)
-        
+
         if not valid then
             data.Box.Visible = false
             data.Tracer.Visible = false
@@ -910,14 +1234,12 @@ RunService.RenderStepped:Connect(function()
             local head = GetPart(char, "Head")
             if root and head then
                 local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
-                local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                local legPos, legOnScreen = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-
+                local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
                 if rootOnScreen then
                     local height = math.abs(headPos.Y - legPos.Y)
                     local width = height / 2
 
-                    -- Boxes
                     if Features.Boxes then
                         data.Box.Size = Vector2.new(width, height)
                         data.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
@@ -927,18 +1249,13 @@ RunService.RenderStepped:Connect(function()
                         data.Box.Visible = false
                     end
 
-                    -- Text (Show Life & Show Names)
                     if Features.ShowNames or Features.ShowLife then
                         local displayText = ""
-                        if Features.ShowNames then
-                            displayText = player.Name
-                        end
+                        if Features.ShowNames then displayText = player.Name end
                         if Features.ShowLife then
                             local hum = GetHumanoid(char)
                             if hum then
-                                if displayText ~= "" then
-                                    displayText = displayText .. " | "
-                                end
+                                if displayText ~= "" then displayText = displayText .. " | " end
                                 displayText = displayText .. math.floor(hum.Health) .. " HP"
                             end
                         end
@@ -949,7 +1266,6 @@ RunService.RenderStepped:Connect(function()
                         data.Text.Visible = false
                     end
 
-                    -- Tracers
                     if Features.Tracers then
                         data.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                         data.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
@@ -959,14 +1275,12 @@ RunService.RenderStepped:Connect(function()
                         data.Tracer.Visible = false
                     end
 
-                    -- Skeleton
                     if Features.Skeleton then
                         local leftArm = char:FindFirstChild("LeftUpperArm") or char:FindFirstChild("Left Arm")
                         local rightArm = char:FindFirstChild("RightUpperArm") or char:FindFirstChild("Right Arm")
                         local leftLeg = char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg")
                         local rightLeg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
                         local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-
                         if torso and leftArm and rightArm and leftLeg and rightLeg then
                             local tPos = Camera:WorldToViewportPoint(torso.Position)
                             local hPos = Camera:WorldToViewportPoint(head.Position)
@@ -974,23 +1288,18 @@ RunService.RenderStepped:Connect(function()
                             local raPos = Camera:WorldToViewportPoint(rightArm.Position)
                             local llPos = Camera:WorldToViewportPoint(leftLeg.Position)
                             local rlPos = Camera:WorldToViewportPoint(rightLeg.Position)
-
                             data.Skeleton.HeadToTorso.From = Vector2.new(hPos.X, hPos.Y)
                             data.Skeleton.HeadToTorso.To = Vector2.new(tPos.X, tPos.Y)
                             data.Skeleton.HeadToTorso.Visible = true
-
                             data.Skeleton.TorsoToLeftArm.From = Vector2.new(tPos.X, tPos.Y)
                             data.Skeleton.TorsoToLeftArm.To = Vector2.new(laPos.X, laPos.Y)
                             data.Skeleton.TorsoToLeftArm.Visible = true
-
                             data.Skeleton.TorsoToRightArm.From = Vector2.new(tPos.X, tPos.Y)
                             data.Skeleton.TorsoToRightArm.To = Vector2.new(raPos.X, raPos.Y)
                             data.Skeleton.TorsoToRightArm.Visible = true
-
                             data.Skeleton.TorsoToLeftLeg.From = Vector2.new(tPos.X, tPos.Y)
                             data.Skeleton.TorsoToLeftLeg.To = Vector2.new(llPos.X, llPos.Y)
                             data.Skeleton.TorsoToLeftLeg.Visible = true
-
                             data.Skeleton.TorsoToRightLeg.From = Vector2.new(tPos.X, tPos.Y)
                             data.Skeleton.TorsoToRightLeg.To = Vector2.new(rlPos.X, rlPos.Y)
                             data.Skeleton.TorsoToRightLeg.Visible = true
@@ -1010,74 +1319,133 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 5. Auto Kill / Rage Bot
-    if (Features.AutoKill or Features.RageBot) and main.Visible == false and not InLobbyOrSafe() then
+    -- 7. TP Behind (closest, ignore team)
+    if Features.TPBehind and myRoot and not safe then
+        if tick() - lastTPBehind > 0.15 then
+            local _, targetRoot = GetClosestPlayer3D(true, 2000)
+            if targetRoot then
+                local behind = targetRoot.CFrame * CFrame.new(0, 0, 3.5)
+                myRoot.CFrame = behind
+                lastTPBehind = tick()
+            end
+        end
+    end
+
+    -- 8. TP Up (closest, ignore team)
+    if Features.TPUp and myRoot and not safe then
+        if tick() - lastTPUp > 0.15 then
+            local _, targetRoot = GetClosestPlayer3D(true, 2000)
+            if targetRoot then
+                myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0)
+                lastTPUp = tick()
+            end
+        end
+    end
+
+    -- 9. Shoot through walls (closest, no wallcheck)
+    if Features.ShootThroughWalls and not menuOpen and not safe and not shootWallsCooldown and not katanaNear then
+        local _, targetRoot = GetClosestPlayer3D(false, 1500)
+        if targetRoot then
+            local head = targetRoot.Parent and targetRoot.Parent:FindFirstChild("Head")
+            local part = head or targetRoot
+            shootWallsCooldown = true
+            DoClick()
+            FireAt(part)
+            task.delay(0.06, function()
+                shootWallsCooldown = false
+            end)
+        end
+    end
+
+    -- 10. Insta Backstab
+    if Features.InstaBackstab and myRoot and not menuOpen and not safe then
         for _, player in ipairs(Players:GetPlayers()) do
             if IsEnemy(player) then
                 local char = GetCharacter(player)
                 if char and IsAlive(char) then
                     local root = GetRoot(char)
-                    if root and FireRemote then
-                        pcall(function() FireRemote:FireServer(root.Position, root) end)
+                    if root and (root.Position - myRoot.Position).Magnitude < 14 then
+                        FireAt(root)
                     end
                 end
             end
         end
     end
 
-    -- 6. Insta Backstab
-    if Features.InstaBackstab and main.Visible == false and not InLobbyOrSafe() then
-        for _, player in ipairs(Players:GetPlayers()) do
-            if IsEnemy(player) then
-                local char = GetCharacter(player)
-                if char and IsAlive(char) then
-                    local root = GetRoot(char)
-                    local myRoot = GetRoot(LocalPlayer.Character)
-                    if root and myRoot and (root.Position - myRoot.Position).Magnitude < 10 then
-                        pcall(function()
-                            if FireRemote then FireRemote:FireServer(root.Position, root) end
-                        end)
-                    end
-                end
+    -- 11. Speed Hack (power 40-100)
+    if Features.SpeedHack and myRoot and myChar then
+        local hum = myChar:FindFirstChildOfClass("Humanoid")
+        if hum and hum.MoveDirection.Magnitude > 0.05 then
+            local power = math.clamp(Features.SpeedPower or 60, 40, 100)
+            local boost = hum.MoveDirection * power
+            local ok = pcall(function()
+                local cur = myRoot.AssemblyLinearVelocity
+                myRoot.AssemblyLinearVelocity = Vector3.new(boost.X, cur.Y, boost.Z)
+            end)
+            if not ok then
+                pcall(function()
+                    local cur = myRoot.Velocity
+                    myRoot.Velocity = Vector3.new(boost.X, cur.Y, boost.Z)
+                end)
             end
         end
     end
 
-    -- 7. Matrix Slide
-    if Features.MatrixSlide then
-        pcall(function()
-            local char = LocalPlayer.Character
-            local root = GetRoot(char)
-            if root and char:FindFirstChildOfClass("Humanoid") then
-                if char:FindFirstChildOfClass("Humanoid").MoveDirection.Magnitude > 0 then
-                    root.Velocity = root.Velocity + (char:FindFirstChildOfClass("Humanoid").MoveDirection * (Features.SlidePower and Features.PowerVal or 3) * 2)
-                end
+    -- 11b. Noclip
+    if Features.Noclip and myChar then
+        for _, part in ipairs(myChar:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
-        end)
+        end
     end
 
-    -- 8. Fly
-    local char = LocalPlayer.Character
-    local root = char and GetRoot(char)
-    if Features.Fly and root then
+    -- 12. Fly
+    if Features.Fly and myRoot then
         if not flyBodyVelocity then
-            flyBodyVelocity = Instance.new("BodyVelocity", root)
+            flyBodyVelocity = Instance.new("BodyVelocity")
             flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            flyBodyVelocity.Parent = myRoot
         end
         if not flyBodyGyro then
-            flyBodyGyro = Instance.new("BodyGyro", root)
+            flyBodyGyro = Instance.new("BodyGyro")
             flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            flyBodyGyro.Parent = myRoot
         end
         flyBodyGyro.CFrame = Camera.CFrame
-        local moveDir = Vector3.new()
+        local moveDir = Vector3.zero
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-        flyBodyVelocity.Velocity = moveDir * Features.FlySpeed
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+        if moveDir.Magnitude > 0.1 then
+            flyBodyVelocity.Velocity = moveDir.Unit * Features.FlySpeed
+        else
+            flyBodyVelocity.Velocity = Vector3.zero
+        end
     else
         if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
         if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+    end
+
+    -- 13. SpinBot (BodyAngularVelocity — survives physics, actually spins)
+    if Features.SpinBot and myRoot then
+        local spin = myRoot:FindFirstChild("FanwareSpin")
+        if not spin then
+            spin = Instance.new("BodyAngularVelocity")
+            spin.Name = "FanwareSpin"
+            spin.MaxTorque = Vector3.new(0, math.huge, 0)
+            spin.P = 5000
+            spin.Parent = myRoot
+        end
+        spin.AngularVelocity = Vector3.new(0, Features.SpinSpeed * 2, 0)
+    else
+        if myRoot then
+            local spin = myRoot:FindFirstChild("FanwareSpin")
+            if spin then spin:Destroy() end
+        end
     end
 end)
 
@@ -1089,13 +1457,28 @@ local combat = tabs["Combat"].page
 makeToggle(combat, "Aimbot", false, function(v) Features.Aimbot = v end)
 makeDropdown(combat, "Aimbot Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.AimbotTarget = v end)
 makeSlider(combat, "Aimbot Smoothness", 1, 20, 5, function(v) Features.AimbotSmoothness = v end)
+makeSlider(combat, "Aimbot Stickiness", 1, 10, 5, function(v) Features.AimbotStickiness = v end)
+makeSlider(combat, "Aimbot FOV", 50, 700, 350, function(v) Features.AimbotFOV = v end)
+makeSlider(combat, "Aimbot Max Dist", 100, 1500, 800, function(v) Features.AimbotMaxDist = v end)
+makeToggle(combat, "Aimbot WallCheck", true, function(v) Features.AimbotWallCheck = v end)
 
 makeToggle(combat, "TriggerBot", false, function(v) Features.TriggerBot = v end)
-makeToggle(combat, "Silent Aim", false, function(v) Features.SilentAim = v end)
-makeDropdown(combat, "Silent Aim Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.SilentAimTarget = v end)
+makeSlider(combat, "Trigger Delay (ms)", 20, 200, 50, function(v) Features.TriggerBotDelay = v / 1000 end)
+makeToggle(combat, "Trigger WallCheck", true, function(v) Features.TriggerBotWallCheck = v end)
+
+makeToggle(combat, "Anti Katana", false, function(v) Features.AntiKatana = v end)
+makeSlider(combat, "Anti Katana Range", 10, 60, 25, function(v) Features.AntiKatanaRange = v end)
+
 makeToggle(combat, "Death Lock", false, function(v) Features.DeathLock = v end)
 makeDropdown(combat, "Death Lock Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.DeathLockTarget = v end)
+makeToggle(combat, "DeathLock WallCheck", true, function(v) Features.DeathLockWallCheck = v end)
+
+makeToggle(combat, "Death Lock ULTRA", false, function(v) Features.DeathLockUltra = v end)
+makeDropdown(combat, "ULTRA Target", {"Head", "Torso", "Mixed"}, "Mixed", function(v) Features.DeathLockUltraTarget = v end)
+makeToggle(combat, "ULTRA WallCheck", true, function(v) Features.DeathLockUltraWallCheck = v end)
+
 makeToggle(combat, "Auto Shoot", false, function(v) Features.AutoShoot = v end)
+makeSlider(combat, "AutoShoot Delay (ms)", 30, 200, 70, function(v) Features.AutoShootDelay = v / 1000 end)
 
 --==============================================================
 -- PLAYERS TAB
@@ -1125,21 +1508,25 @@ makeDropdown(playersTab, "Box Color", {"White", "Red", "Green", "Blue", "Purple"
 end)
 
 --==============================================================
--- MISC TAB
+-- MISC TAB (rage)
 --==============================================================
 local misc = tabs["Misc."].page
 
-makeToggle(misc, "Auto Kill", false, function(v) Features.AutoKill = v end)
-makeKeybind(misc, "  └ Keybind", nil)
-makeToggle(misc, "Rage Bot", false, function(v) Features.RageBot = v end)
-makeKeybind(misc, "  └ Keybind", nil)
+makeToggle(misc, "TP Behind", false, function(v) Features.TPBehind = v end)
+makeToggle(misc, "TP Up", false, function(v) Features.TPUp = v end)
+makeToggle(misc, "Shoot Through Walls", false, function(v) Features.ShootThroughWalls = v end)
 makeToggle(misc, "Insta Backstab", false, function(v) Features.InstaBackstab = v end)
-makeKeybind(misc, "  └ Keybind", nil)
-makeToggle(misc, "Matrix Slide", false, function(v) Features.MatrixSlide = v end)
-makeToggle(misc, "Slide Power", false, function(v) Features.SlidePower = v end)
-makeSlider(misc, "  └ Power", 1, 10, 1, function(v) Features.PowerVal = v end)
+
+makeToggle(misc, "Speed Hack", false, function(v) Features.SpeedHack = v end)
+makeSlider(misc, "  └ Speed Power", 40, 100, 60, function(v) Features.SpeedPower = v end)
+
+makeToggle(misc, "Noclip", false, function(v) Features.Noclip = v end)
+
 makeToggle(misc, "Fly", false, function(v) Features.Fly = v end)
-makeSlider(misc, "  └ Fly Speed", 1, 100, 50, function(v) Features.FlySpeed = v end)
+makeSlider(misc, "  └ Fly Speed", 1, 150, 50, function(v) Features.FlySpeed = v end)
+
+makeToggle(misc, "SpinBot", false, function(v) Features.SpinBot = v end)
+makeSlider(misc, "  └ Spin Speed", 5, 40, 15, function(v) Features.SpinSpeed = v end)
 
 --==============================================================
 -- SETTINGS TAB
@@ -1148,41 +1535,19 @@ local settings = tabs["Settings"].page
 
 makeToggle(settings, "Notify when someone is using cheats (rival)", true, function(v) Features.NotifyRivals = v end)
 makeToggle(settings, "Auto save and auto execute after", false)
-makeKeybind(settings, "  └ Auto Save Keybind", nil)
-
-local function makeButton(page, label, callback)
-    local btn = new("TextButton", {
-        Parent = page,
-        Size = UDim2.new(1, 0, 0, 32),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 52),
-        BorderSizePixel = 0,
-        Text = label,
-        TextColor3 = Color3.fromRGB(230, 230, 235),
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        AutoButtonColor = true,
-        ZIndex = 3,
-    })
-    corner(btn, 6)
-    addRow(page, 32)
-
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
 
 makeButton(settings, "Import Setting", function()
     print("[Fanware] Import Setting pressed")
 end)
-
 makeButton(settings, "Export Setting", function()
     print("[Fanware] Export Setting pressed")
 end)
 
 new("TextLabel", {
     Parent = settings,
-    Size = UDim2.new(1, 0, 0, 60),
+    Size = UDim2.new(1, 0, 0, 70),
     BackgroundTransparency = 1,
-    Text = "Supported executors: All\nJoin Discord: discord.gg/g9UAV8xC2p",
+    Text = "Supported executors: All\nJoin Discord: discord.gg/g9UAV8xC2p\nv2: silent hooks + TP rage + wallcheck + slide 40-100",
     TextColor3 = Color3.fromRGB(150, 150, 165),
     Font = Enum.Font.Gotham,
     TextSize = 12,
@@ -1191,10 +1556,10 @@ new("TextLabel", {
     LayoutOrder = 999,
     ZIndex = 3,
 })
-addRow(settings, 60)
+addRow(settings, 70)
 
 --==============================================================
--- RIGHT SHIFT TOGGLE & MENU CLOSING ON CLICK
+-- RIGHT SHIFT TOGGLE
 --==============================================================
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -1204,6 +1569,12 @@ UserInputService.InputBegan:Connect(function(input, gp)
             activeDropdownList:Destroy()
             activeDropdownList = nil
         end
+    elseif input.KeyCode == Enum.KeyCode.P then
+        Features.Aimbot = not Features.Aimbot
+        print("[Fanware] Aimbot:", Features.Aimbot and "ON" or "OFF")
+    elseif input.KeyCode == Enum.KeyCode.Q then
+        Features.DeathLockUltra = not Features.DeathLockUltra
+        print("[Fanware] Death Lock ULTRA:", Features.DeathLockUltra and "ON" or "OFF")
     end
 end)
 
@@ -1242,4 +1613,4 @@ do
     end)
 end
 
-print("[Fanware] Fully Loaded with Menu & Lobby Protections + 5s Spawn Delay.")
+print("[Fanware] v2.6 loaded — ULTRA camera+mouse sticky, Anti Katana cached.")
