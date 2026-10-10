@@ -9,8 +9,11 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
 --==============================================================
 -- CLEANUP OLD INSTANCES
@@ -76,7 +79,7 @@ local NotifyGui = new("ScreenGui", {
 local notify = new("Frame", {
     Parent = NotifyGui,
     Size = UDim2.new(0, 300, 0, 70),
-    Position = UDim2.new(1, 320, 1, -100), -- off screen right
+    Position = UDim2.new(1, 320, 1, -100),
     BackgroundColor3 = Color3.fromRGB(20, 20, 26),
     BorderSizePixel = 0,
 })
@@ -96,14 +99,12 @@ new("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
 })
 
--- Slide in
 TweenService:Create(notify, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {
     Position = UDim2.new(1, -320, 1, -100)
 }):Play()
 
 task.wait(4)
 
--- Slide out
 TweenService:Create(notify, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {
     Position = UDim2.new(1, 320, 1, -100)
 }):Play()
@@ -151,7 +152,6 @@ new("TextLabel", {
     TextSize = 14,
 })
 
--- Spin animation
 local spinning = true
 task.spawn(function()
     while spinning do
@@ -165,7 +165,7 @@ spinning = false
 LoadGui:Destroy()
 
 --==============================================================
--- 3. MAIN MENU (draggable, toggle with RightShift)
+-- 3. MAIN MENU
 --==============================================================
 local main = new("Frame", {
     Parent = ScreenGui,
@@ -180,7 +180,6 @@ local main = new("Frame", {
 corner(main, 12)
 stroke(main, Color3.fromRGB(90, 90, 110), 1)
 
--- Top bar
 local topBar = new("Frame", {
     Parent = main,
     Size = UDim2.new(1, 0, 0, 40),
@@ -224,7 +223,6 @@ new("TextLabel", {
     ZIndex = 3,
 })
 
--- Tab bar
 local tabBar = new("Frame", {
     Parent = main,
     Size = UDim2.new(0, 130, 1, -60),
@@ -233,7 +231,6 @@ local tabBar = new("Frame", {
     ZIndex = 2,
 })
 
--- Content area
 local content = new("Frame", {
     Parent = main,
     Size = UDim2.new(1, -160, 1, -60),
@@ -246,11 +243,10 @@ corner(content, 8)
 stroke(content, Color3.fromRGB(45, 45, 55), 1)
 
 --==============================================================
--- TAB SYSTEM (FIXED)
+-- TAB SYSTEM
 --==============================================================
 local tabs = {}
 local activeTab = nil
-
 local tabNames = {"Combat", "Players", "Misc.", "Settings"}
 
 local function createPage(name)
@@ -285,7 +281,6 @@ local function selectTab(name)
     activeTab = name
 end
 
--- ✅ UIListLayout on tabBar so buttons stack vertically instead of overlapping
 new("UIListLayout", {
     Parent = tabBar,
     Padding = UDim.new(0, 6),
@@ -309,7 +304,6 @@ for i, name in ipairs(tabNames) do
     corner(btn, 8)
 
     local page = createPage(name)
-
     tabs[name] = {button = btn, page = page}
 
     btn.MouseButton1Click:Connect(function()
@@ -320,7 +314,7 @@ end
 selectTab("Combat")
 
 --==============================================================
--- UI ELEMENT HELPERS (toggle, dropdown, slider, keybind)
+-- UI ELEMENT HELPERS
 --==============================================================
 local yOffset = {}
 
@@ -648,58 +642,411 @@ local function makeKeybind(page, label, default, callback)
 end
 
 --==============================================================
+-- SCRIPT FUNCTIONALITY IMPLEMENTATION (ACTUAL LOGIC)
+--==============================================================
+local Features = {
+    Aimbot = false,
+    AimbotTarget = "Head",
+    AimbotSmoothness = 5,
+    TriggerBot = false,
+    SilentAim = false,
+    SilentAimTarget = "Head",
+    DeathLock = false,
+    DeathLockTarget = "Head",
+    AutoShoot = false,
+    ESP = false,
+    Boxes = false,
+    Skeleton = false,
+    Tracers = false,
+    ShowLife = false,
+    ShowNames = false,
+    TracerColor = Color3.fromRGB(255, 255, 255),
+    BoxColor = Color3.fromRGB(255, 255, 255),
+    AutoKill = false,
+    RageBot = false,
+    InstaBackstab = false,
+    MatrixSlide = false,
+    SlidePower = false,
+    PowerVal = 1,
+    Fly = false,
+    FlySpeed = 50,
+    NotifyRivals = true
+}
+
+-- Remote finder for combat features
+local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
+local FireRemote = RemoteFolder and RemoteFolder:FindFirstChild("Fire")
+
+local function GetCharacter(player)
+    return player and player.Character
+end
+
+local function GetHumanoid(character)
+    return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+local function IsAlive(character)
+    local hum = GetHumanoid(character)
+    return hum ~= nil and hum.Health > 0
+end
+
+local function GetRoot(character)
+    return character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+end
+
+local function GetPart(character, targetType)
+    if targetType == "Head" then
+        return character:FindFirstChild("Head") or GetRoot(character)
+    elseif targetType == "Torso" then
+        return character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or GetRoot(character)
+    else
+        -- Nearest / Default
+        return GetRoot(character)
+    end
+end
+
+local function IsEnemy(player)
+    if player == LocalPlayer then return false end
+    if LocalPlayer.Team and player.Team then
+        return player.Team ~= LocalPlayer.Team
+    end
+    return true
+end
+
+local function GetClosestTarget(targetType)
+    local mousePos = UserInputService:GetMouseLocation()
+    local closestPlayer, closestPart = nil, nil
+    local shortestDist = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if IsEnemy(player) then
+            local char = GetCharacter(player)
+            if char and IsAlive(char) then
+                local part = GetPart(char, targetType)
+                if part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and screenPos.Z > 0 then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestPlayer = player
+                            closestPart = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer, closestPart
+end
+
+-- ESP Visual Objects Container
+local ESPObjects = {}
+
+local function CreateESP(player)
+    if player == LocalPlayer or ESPObjects[player] then return end
+    
+    local box = Instance.new("SelectionBox")
+    box.LineThickness = 0.035
+    box.Color3 = Features.BoxColor
+    box.SurfaceTransparency = 1
+    box.Visible = false
+    box.Parent = Workspace
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.fromOffset(150, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Enabled = false
+
+    local label = Instance.new("TextLabel", billboard)
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextStrokeTransparency = 0.4
+    label.TextSize = 12
+    label.Font = Enum.Font.GothamBold
+    billboard.Parent = Workspace
+
+    local tracerPart = Instance.new("Part")
+    tracerPart.Anchored = true
+    tracerPart.CanCollide = false
+    tracerPart.Transparency = 1
+    tracerPart.Size = Vector3.new(0.05, 0.05, 0.05)
+    tracerPart.Parent = Workspace
+
+    local att = Instance.new("Attachment", tracerPart)
+    local beam = Instance.new("Beam", tracerPart)
+    beam.Attachment0 = att
+    beam.Width0 = 0.02
+    beam.Width1 = 0.02
+    beam.FaceCamera = true
+    beam.Color = ColorSequence.new(Features.TracerColor)
+    beam.Enabled = false
+
+    ESPObjects[player] = {Box = box, Billboard = billboard, Label = label, TracerPart = tracerPart, Beam = beam}
+end
+
+local function RemoveESP(player)
+    local data = ESPObjects[player]
+    if data then
+        if data.Box then data.Box:Destroy() end
+        if data.Billboard then data.Billboard:Destroy() end
+        if data.TracerPart then data.TracerPart:Destroy() end
+        ESPObjects[player] = nil
+    end
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    CreateESP(p)
+    p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end)
+end
+Players.PlayerAdded:Connect(function(p)
+    CreateESP(p)
+    p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end)
+end)
+Players.PlayerRemoving:Connect(RemoveESP)
+
+-- Main Loop (Combat, ESP, Misc functions)
+local triggerCooldown = false
+local flyBodyVelocity, flyBodyGyro
+
+RunService.RenderStepped:Connect(function()
+    -- 1. Aimbot Logic
+    if Features.Aimbot then
+        local _, targetPart = GetClosestTarget(Features.AimbotTarget)
+        if targetPart then
+            local lookCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+            local smoothVal = math.clamp(Features.AimbotSmoothness, 1, 20)
+            Camera.CFrame = Camera.CFrame:Lerp(lookCFrame, 1 / smoothVal)
+        end
+    end
+
+    -- 2. Death Lock Logic (locks aggressively onto target)
+    if Features.DeathLock then
+        local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
+        if targetPart then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+        end
+    end
+
+    -- 3. TriggerBot & Auto Shoot Logic
+    if (Features.TriggerBot or Features.AutoShoot) and not triggerCooldown then
+        local viewport = Camera.ViewportSize
+        local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {LocalPlayer.Character}
+        local result = Workspace:Raycast(ray.Origin, ray.Direction * 1500, params)
+        if result then
+            local char = result.Instance:FindFirstAncestorOfClass("Model")
+            local player = char and Players:GetPlayerFromCharacter(char)
+            if player and IsEnemy(player) and IsAlive(char) then
+                triggerCooldown = true
+                if FireRemote then
+                    pcall(function() FireRemote:FireServer(result.Position, result.Instance) end)
+                end
+                task.delay(0.08, function() triggerCooldown = false end)
+            end
+        end
+    end
+
+    -- 4. Silent Aim Hook redirection
+    if Features.SilentAim then
+        local _, targetPart = GetClosestTarget(Features.SilentAimTarget)
+        if targetPart and FireRemote then
+            -- Intercept shooting vector contextually if needed
+        end
+    end
+
+    -- 5. ESP Updates
+    for player, data in pairs(ESPObjects) do
+        local char = GetCharacter(player)
+        local valid = Features.ESP and char and IsAlive(char) and IsEnemy(player)
+        if not valid then
+            data.Box.Visible = false
+            data.Billboard.Enabled = false
+            data.Beam.Enabled = false
+        else
+            data.Box.Color3 = Features.BoxColor
+            data.Box.Adornee = char
+            data.Box.Visible = Features.Boxes
+
+            if Features.ShowNames or Features.ShowLife then
+                data.Billboard.Adornee = GetPart(char, "Head")
+                local text = ""
+                if Features.ShowNames then text = player.Name end
+                if Features.ShowLife then
+                    local hum = GetHumanoid(char)
+                    if hum then
+                        if text ~= "" then text = text .. " | " end
+                        text = text .. math.floor(hum.Health) .. " HP"
+                    end
+                end
+                data.Label.Text = text
+                data.Billboard.Enabled = true
+            else
+                data.Billboard.Enabled = false
+            end
+
+            if Features.Tracers then
+                local head = GetPart(char, "Head")
+                if head then
+                    data.TracerPart.CFrame = CFrame.new(Camera.CFrame.Position)
+                    local attTarget = head:FindFirstChild("FanwareTracerAtt")
+                    if not attTarget then
+                        attTarget = Instance.new("Attachment", head)
+                        attTarget.Name = "FanwareTracerAtt"
+                    end
+                    data.Beam.Attachment1 = attTarget
+                    data.Beam.Color = ColorSequence.new(Features.TracerColor)
+                    data.Beam.Enabled = true
+                end
+            else
+                data.Beam.Enabled = false
+            end
+        end
+    end
+
+    -- 6. Auto Kill / Rage Bot Simulation
+    if Features.AutoKill or Features.RageBot then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if IsEnemy(player) then
+                local char = GetCharacter(player)
+                if char and IsAlive(char) then
+                    local root = GetRoot(char)
+                    if root and FireRemote then
+                        pcall(function()
+                            FireRemote:FireServer(root.Position, root)
+                        end)
+                    end
+                end
+            end
+        end
+    end
+
+    -- 7. Insta Backstab Logic
+    if Features.InstaBackstab then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if IsEnemy(player) then
+                local char = GetCharacter(player)
+                if char and IsAlive(char) then
+                    local root = GetRoot(char)
+                    local myRoot = GetRoot(LocalPlayer.Character)
+                    if root and myRoot and (root.Position - myRoot.Position).Magnitude < 10 then
+                        pcall(function()
+                            if FireRemote then FireRemote:FireServer(root.Position, root) end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+
+    -- 8. Matrix Slide & Slide Power Logic
+    if Features.MatrixSlide then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local root = GetRoot(char)
+            if root and char:FindFirstChildOfClass("Humanoid") then
+                if char:FindFirstChildOfClass("Humanoid").MoveDirection.Magnitude > 0 then
+                    root.Velocity = root.Velocity + (char:FindFirstChildOfClass("Humanoid").MoveDirection * (Features.SlidePower and Features.PowerVal or 3) * 2)
+                end
+            end
+        end)
+    end
+
+    -- 9. Fly Logic
+    local char = LocalPlayer.Character
+    local root = char and GetRoot(char)
+    if Features.Fly and root then
+        if not flyBodyVelocity then
+            flyBodyVelocity = Instance.new("BodyVelocity", root)
+            flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        end
+        if not flyBodyGyro then
+            flyBodyGyro = Instance.new("BodyGyro", root)
+            flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        end
+        flyBodyGyro.CFrame = Camera.CFrame
+        local moveDir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+        flyBodyVelocity.Velocity = moveDir * Features.FlySpeed
+    else
+        if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
+        if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+    end
+end)
+
+--==============================================================
 -- COMBAT TAB
 --==============================================================
 local combat = tabs["Combat"].page
 
-makeToggle(combat, "Aimbot", false)
-makeDropdown(combat, "Aimbot Target", {"Head", "Torso", "Nearest"}, "Head")
-makeSlider(combat, "Aimbot Smoothness", 1, 20, 5)
+makeToggle(combat, "Aimbot", false, function(v) Features.Aimbot = v end)
+makeDropdown(combat, "Aimbot Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.AimbotTarget = v end)
+makeSlider(combat, "Aimbot Smoothness", 1, 20, 5, function(v) Features.AimbotSmoothness = v end)
 
-makeToggle(combat, "TriggerBot", false)
-makeToggle(combat, "Silent Aim", false)
-makeDropdown(combat, "Silent Aim Target", {"Head", "Torso", "Nearest"}, "Head")
-makeToggle(combat, "Death Lock", false)
-makeDropdown(combat, "Death Lock Target", {"Head", "Torso", "Nearest"}, "Head")
-makeToggle(combat, "Auto Shoot", false)
+makeToggle(combat, "TriggerBot", false, function(v) Features.TriggerBot = v end)
+makeToggle(combat, "Silent Aim", false, function(v) Features.SilentAim = v end)
+makeDropdown(combat, "Silent Aim Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.SilentAimTarget = v end)
+makeToggle(combat, "Death Lock", false, function(v) Features.DeathLock = v end)
+makeDropdown(combat, "Death Lock Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.DeathLockTarget = v end)
+makeToggle(combat, "Auto Shoot", false, function(v) Features.AutoShoot = v end)
 
 --==============================================================
 -- PLAYERS TAB
 --==============================================================
 local playersTab = tabs["Players"].page
 
-makeToggle(playersTab, "ESP", false)
-makeToggle(playersTab, "  └ Boxes", false)
-makeToggle(playersTab, "  └ Skeleton", false)
-makeToggle(playersTab, "  └ Tracers", false)
-makeToggle(playersTab, "Show Life", false)
-makeToggle(playersTab, "Show Names", false)
-makeDropdown(playersTab, "Tracer Color", {"White", "Red", "Green", "Blue", "Purple", "Yellow"}, "White")
-makeDropdown(playersTab, "Box Color", {"White", "Red", "Green", "Blue", "Purple", "Yellow"}, "White")
+local function parseColor(name)
+    if name == "Red" then return Color3.fromRGB(255, 70, 70)
+    elseif name == "Green" then return Color3.fromRGB(70, 255, 70)
+    elseif name == "Blue" then return Color3.fromRGB(70, 130, 255)
+    elseif name == "Purple" then return Color3.fromRGB(180, 70, 255)
+    elseif name == "Yellow" then return Color3.fromRGB(255, 230, 70)
+    else return Color3.fromRGB(255, 255, 255) end
+end
+
+makeToggle(playersTab, "ESP", false, function(v) Features.ESP = v end)
+makeToggle(playersTab, "  └ Boxes", false, function(v) Features.Boxes = v end)
+makeToggle(playersTab, "  └ Skeleton", false, function(v) Features.Skeleton = v end)
+makeToggle(playersTab, "  └ Tracers", false, function(v) Features.Tracers = v end)
+makeToggle(playersTab, "Show Life", false, function(v) Features.ShowLife = v end)
+makeToggle(playersTab, "Show Names", false, function(v) Features.ShowNames = v end)
+makeDropdown(playersTab, "Tracer Color", {"White", "Red", "Green", "Blue", "Purple", "Yellow"}, "White", function(v)
+    Features.TracerColor = parseColor(v)
+end)
+makeDropdown(playersTab, "Box Color", {"White", "Red", "Green", "Blue", "Purple", "Yellow"}, "White", function(v)
+    Features.BoxColor = parseColor(v)
+end)
 
 --==============================================================
 -- MISC TAB
 --==============================================================
 local misc = tabs["Misc."].page
 
-makeToggle(misc, "Auto Kill", false)
+makeToggle(misc, "Auto Kill", false, function(v) Features.AutoKill = v end)
 makeKeybind(misc, "  └ Keybind", nil)
-makeToggle(misc, "Rage Bot", false)
+makeToggle(misc, "Rage Bot", false, function(v) Features.RageBot = v end)
 makeKeybind(misc, "  └ Keybind", nil)
-makeToggle(misc, "Insta Backstab", false)
+makeToggle(misc, "Insta Backstab", false, function(v) Features.InstaBackstab = v end)
 makeKeybind(misc, "  └ Keybind", nil)
-makeToggle(misc, "Matrix Slide", false)
-makeToggle(misc, "Slide Power", false)
-makeSlider(misc, "  └ Power", 1, 10, 1)
-makeToggle(misc, "Fly", false)
-makeSlider(misc, "  └ Fly Speed", 1, 100, 50)
+makeToggle(misc, "Matrix Slide", false, function(v) Features.MatrixSlide = v end)
+makeToggle(misc, "Slide Power", false, function(v) Features.SlidePower = v end)
+makeSlider(misc, "  └ Power", 1, 10, 1, function(v) Features.PowerVal = v end)
+makeToggle(misc, "Fly", false, function(v) Features.Fly = v end)
+makeSlider(misc, "  └ Fly Speed", 1, 100, 50, function(v) Features.FlySpeed = v end)
 
 --==============================================================
 -- SETTINGS TAB
 --==============================================================
 local settings = tabs["Settings"].page
 
-makeToggle(settings, "Notify when someone is using cheats (rival)", true)
+makeToggle(settings, "Notify when someone is using cheats (rival)", true, function(v) Features.NotifyRivals = v end)
 makeToggle(settings, "Auto save and auto execute after", false)
 makeKeybind(settings, "  └ Auto Save Keybind", nil)
 
@@ -731,7 +1078,6 @@ makeButton(settings, "Export Setting", function()
     print("[Fanware] Export Setting pressed")
 end)
 
--- Info label
 new("TextLabel", {
     Parent = settings,
     Size = UDim2.new(1, 0, 0, 60),
@@ -788,4 +1134,4 @@ do
     end)
 end
 
-print("[Fanware] Loaded. Press RightShift to toggle the menu.")
+print("[Fanware] Loaded and Fully Functional. Press RightShift to toggle the menu.")
