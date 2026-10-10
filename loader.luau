@@ -689,7 +689,6 @@ local Features = {
     PowerVal = 1,
     Fly = false,
     FlySpeed = 50,
-    UnlockAll = false,
     NotifyRivals = true
 }
 
@@ -861,7 +860,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 2. Death Lock Logic (También restringido)
+    -- 2. Death Lock Logic
     if Features.DeathLock and main.Visible == false and not InLobbyOrSafe() then
         local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
         if targetPart then
@@ -1141,17 +1140,6 @@ makeSlider(misc, "  └ Power", 1, 10, 1, function(v) Features.PowerVal = v end)
 makeToggle(misc, "Fly", false, function(v) Features.Fly = v end)
 makeSlider(misc, "  └ Fly Speed", 1, 100, 50, function(v) Features.FlySpeed = v end)
 
--- Nuevo Unlock All (Skin Changer / Cosmetics) en la pestaña Misc.
-makeToggle(misc, "Unlock All (Skins)", false, function(v)
-    Features.UnlockAll = v
-    pcall(function()
-        local remotes = ReplicatedStorage:FindFirstChild("ShooterRemotes")
-        if remotes and remotes:FindFirstChild("UnlockAllSkins") then
-            remotes.UnlockAllSkins:FireServer(v)
-        end
-    end)
-end)
-
 --==============================================================
 -- SETTINGS TAB
 --==============================================================
@@ -1247,10 +1235,10 @@ do
     end)
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
+            or input.UserInputType == Enum.UserInputType.Touch souvenir then
             dragging = false
         end
     end)
 end
 
-print("[Fanware] Fully Loaded with Unlock All in Misc tab.")
+print("[Fanware] Clean script loaded without Skin Changer.")
