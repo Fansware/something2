@@ -1,0 +1,5 @@
+--==============================================================
+-- Fanware | Best script (fixed v3.1 — Rivals Utility.Raycast wallbang)
+-- Discord: https://discord.gg/g9UAV8xC2p
+--==============================================================
+-- PART1 placeholder - full push incoming
