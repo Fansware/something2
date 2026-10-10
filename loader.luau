@@ -642,7 +642,7 @@ local function makeKeybind(page, label, default, callback)
 end
 
 --==============================================================
--- SCRIPT FUNCTIONALITY IMPLEMENTATION (ACTUAL LOGIC)
+-- SCRIPT FUNCTIONALITY IMPLEMENTATION (DRAWING ESP & MOUSE AIM)
 --==============================================================
 local Features = {
     Aimbot = false,
@@ -673,7 +673,6 @@ local Features = {
     NotifyRivals = true
 }
 
--- Remote finder for combat features
 local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
 local FireRemote = RemoteFolder and RemoteFolder:FindFirstChild("Fire")
 
@@ -700,7 +699,6 @@ local function GetPart(character, targetType)
     elseif targetType == "Torso" then
         return character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso") or GetRoot(character)
     else
-        -- Nearest / Default
         return GetRoot(character)
     end
 end
@@ -740,97 +738,98 @@ local function GetClosestTarget(targetType)
     return closestPlayer, closestPart
 end
 
--- ESP Visual Objects Container
-local ESPObjects = {}
+-- Drawing ESP Objects Management (Visible through walls)
+local DrawingESP = {}
 
-local function CreateESP(player)
-    if player == LocalPlayer or ESPObjects[player] then return end
-    
-    local box = Instance.new("SelectionBox")
-    box.LineThickness = 0.035
-    box.Color3 = Features.BoxColor
-    box.SurfaceTransparency = 1
+local function CreateDrawingESP(player)
+    if player == LocalPlayer or DrawingESP[player] then return end
+
+    local box = Drawing.new("Square")
     box.Visible = false
-    box.Parent = Workspace
+    box.Thickness = 1.5
+    box.Filled = false
+    box.Color = Features.BoxColor
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.fromOffset(150, 40)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Enabled = false
+    local tracer = Drawing.new("Line")
+    tracer.Visible = false
+    tracer.Thickness = 1.5
+    tracer.Color = Features.TracerColor
 
-    local label = Instance.new("TextLabel", billboard)
-    label.Size = UDim2.fromScale(1, 1)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0.4
-    label.TextSize = 12
-    label.Font = Enum.Font.GothamBold
-    billboard.Parent = Workspace
+    -- Skeleton joints (Head to Torso, Torso to Arms/Legs)
+    local skeletonLines = {
+        HeadToTorso = Drawing.new("Line"),
+        TorsoToLeftArm = Drawing.new("Line"),
+        TorsoToRightArm = Drawing.new("Line"),
+        TorsoToLeftLeg = Drawing.new("Line"),
+        TorsoToRightLeg = Drawing.new("Line")
+    }
+    for _, line in pairs(skeletonLines) do
+        line.Visible = false
+        line.Thickness = 1.5
+        line.Color = Features.BoxColor
+    end
 
-    local tracerPart = Instance.new("Part")
-    tracerPart.Anchored = true
-    tracerPart.CanCollide = false
-    tracerPart.Transparency = 1
-    tracerPart.Size = Vector3.new(0.05, 0.05, 0.05)
-    tracerPart.Parent = Workspace
-
-    local att = Instance.new("Attachment", tracerPart)
-    local beam = Instance.new("Beam", tracerPart)
-    beam.Attachment0 = att
-    beam.Width0 = 0.02
-    beam.Width1 = 0.02
-    beam.FaceCamera = true
-    beam.Color = ColorSequence.new(Features.TracerColor)
-    beam.Enabled = false
-
-    ESPObjects[player] = {Box = box, Billboard = billboard, Label = label, TracerPart = tracerPart, Beam = beam}
+    DrawingESP[player] = {Box = box, Tracer = tracer, Skeleton = skeletonLines}
 end
 
-local function RemoveESP(player)
-    local data = ESPObjects[player]
+local function RemoveDrawingESP(player)
+    local data = DrawingESP[player]
     if data then
-        if data.Box then data.Box:Destroy() end
-        if data.Billboard then data.Billboard:Destroy() end
-        if data.TracerPart then data.TracerPart:Destroy() end
-        ESPObjects[player] = nil
+        if data.Box then data.Box:Remove() end
+        if data.Tracer then data.Tracer:Remove() end
+        for _, line in pairs(data.Skeleton) do
+            line:Remove()
+        end
+        DrawingESP[player] = nil
     end
 end
 
 for _, p in ipairs(Players:GetPlayers()) do
-    CreateESP(p)
-    p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end)
+    CreateDrawingESP(p)
+    p.CharacterAdded:Connect(function() task.wait(1) CreateDrawingESP(p) end)
 end
 Players.PlayerAdded:Connect(function(p)
-    CreateESP(p)
-    p.CharacterAdded:Connect(function() task.wait(1) CreateESP(p) end)
+    CreateDrawingESP(p)
+    p.CharacterAdded:Connect(function() task.wait(1) CreateDrawingESP(p) end)
 end)
-Players.PlayerRemoving:Connect(RemoveESP)
+Players.PlayerRemoving:Connect(RemoveDrawingESP)
 
--- Main Loop (Combat, ESP, Misc functions)
+-- Main Loop
 local triggerCooldown = false
 local flyBodyVelocity, flyBodyGyro
 
 RunService.RenderStepped:Connect(function()
-    -- 1. Aimbot Logic
+    -- 1. Mouse-based Aimbot Logic
     if Features.Aimbot then
         local _, targetPart = GetClosestTarget(Features.AimbotTarget)
         if targetPart then
-            local lookCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
-            local smoothVal = math.clamp(Features.AimbotSmoothness, 1, 20)
-            Camera.CFrame = Camera.CFrame:Lerp(lookCFrame, 1 / smoothVal)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen then
+                local mousePos = UserInputService:GetMouseLocation()
+                local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
+                local delta = targetScreen - mousePos
+                local smooth = math.clamp(Features.AimbotSmoothness, 1, 20)
+                if mousemoverel then
+                    mousemoverel(delta.X / smooth, delta.Y / smooth)
+                end
+            end
         end
     end
 
-    -- 2. Death Lock Logic (locks aggressively onto target)
+    -- 2. Death Lock Logic
     if Features.DeathLock then
         local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
         if targetPart then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen and mousemoverel then
+                local mousePos = UserInputService:GetMouseLocation()
+                local delta = Vector2.new(screenPos.X, screenPos.Y) - mousePos
+                mousemoverel(delta.X, delta.Y)
+            end
         end
     end
 
-    -- 3. TriggerBot & Auto Shoot Logic
+    -- 3. TriggerBot & Auto Shoot
     if (Features.TriggerBot or Features.AutoShoot) and not triggerCooldown then
         local viewport = Camera.ViewportSize
         local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
@@ -851,64 +850,97 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 4. Silent Aim Hook redirection
-    if Features.SilentAim then
-        local _, targetPart = GetClosestTarget(Features.SilentAimTarget)
-        if targetPart and FireRemote then
-            -- Intercept shooting vector contextually if needed
-        end
-    end
-
-    -- 5. ESP Updates
-    for player, data in pairs(ESPObjects) do
+    -- 4. Drawing ESP Updates (Through Walls)
+    for player, data in pairs(DrawingESP) do
         local char = GetCharacter(player)
         local valid = Features.ESP and char and IsAlive(char) and IsEnemy(player)
+        
         if not valid then
             data.Box.Visible = false
-            data.Billboard.Enabled = false
-            data.Beam.Enabled = false
+            data.Tracer.Visible = false
+            for _, line in pairs(data.Skeleton) do line.Visible = false end
         else
-            data.Box.Color3 = Features.BoxColor
-            data.Box.Adornee = char
-            data.Box.Visible = Features.Boxes
+            local root = GetRoot(char)
+            local head = GetPart(char, "Head")
+            if root and head then
+                local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
+                local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                local legPos, legOnScreen = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
 
-            if Features.ShowNames or Features.ShowLife then
-                data.Billboard.Adornee = GetPart(char, "Head")
-                local text = ""
-                if Features.ShowNames then text = player.Name end
-                if Features.ShowLife then
-                    local hum = GetHumanoid(char)
-                    if hum then
-                        if text ~= "" then text = text .. " | " end
-                        text = text .. math.floor(hum.Health) .. " HP"
+                if rootOnScreen then
+                    -- Boxes
+                    if Features.Boxes then
+                        local height = math.abs(headPos.Y - legPos.Y)
+                        local width = height / 2
+                        data.Box.Size = Vector2.new(width, height)
+                        data.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
+                        data.Box.Color = Features.BoxColor
+                        data.Box.Visible = true
+                    else
+                        data.Box.Visible = false
                     end
-                end
-                data.Label.Text = text
-                data.Billboard.Enabled = true
-            else
-                data.Billboard.Enabled = false
-            end
 
-            if Features.Tracers then
-                local head = GetPart(char, "Head")
-                if head then
-                    data.TracerPart.CFrame = CFrame.new(Camera.CFrame.Position)
-                    local attTarget = head:FindFirstChild("FanwareTracerAtt")
-                    if not attTarget then
-                        attTarget = Instance.new("Attachment", head)
-                        attTarget.Name = "FanwareTracerAtt"
+                    -- Tracers
+                    if Features.Tracers then
+                        data.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        data.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                        data.Tracer.Color = Features.TracerColor
+                        data.Tracer.Visible = true
+                    else
+                        data.Tracer.Visible = false
                     end
-                    data.Beam.Attachment1 = attTarget
-                    data.Beam.Color = ColorSequence.new(Features.TracerColor)
-                    data.Beam.Enabled = true
+
+                    -- Skeleton
+                    if Features.Skeleton then
+                        local leftArm = char:FindFirstChild("LeftUpperArm") or char:FindFirstChild("Left Arm")
+                        local rightArm = char:FindFirstChild("RightUpperArm") or char:FindFirstChild("Right Arm")
+                        local leftLeg = char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg")
+                        local rightLeg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
+                        local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+
+                        if torso and leftArm and rightArm and leftLeg and rightLeg then
+                            local tPos = Camera:WorldToViewportPoint(torso.Position)
+                            local hPos = Camera:WorldToViewportPoint(head.Position)
+                            local laPos = Camera:WorldToViewportPoint(leftArm.Position)
+                            local raPos = Camera:WorldToViewportPoint(rightArm.Position)
+                            local llPos = Camera:WorldToViewportPoint(leftLeg.Position)
+                            local rlPos = Camera:WorldToViewportPoint(rightLeg.Position)
+
+                            data.Skeleton.HeadToTorso.From = Vector2.new(hPos.X, hPos.Y)
+                            data.Skeleton.HeadToTorso.To = Vector2.new(tPos.X, tPos.Y)
+                            data.Skeleton.HeadToTorso.Visible = true
+
+                            data.Skeleton.TorsoToLeftArm.From = Vector2.new(tPos.X, tPos.Y)
+                            data.Skeleton.TorsoToLeftArm.To = Vector2.new(laPos.X, laPos.Y)
+                            data.Skeleton.TorsoToLeftArm.Visible = true
+
+                            data.Skeleton.TorsoToRightArm.From = Vector2.new(tPos.X, tPos.Y)
+                            data.Skeleton.TorsoToRightArm.To = Vector2.new(raPos.X, raPos.Y)
+                            data.Skeleton.TorsoToRightArm.Visible = true
+
+                            data.Skeleton.TorsoToLeftLeg.From = Vector2.new(tPos.X, tPos.Y)
+                            data.Skeleton.TorsoToLeftLeg.To = Vector2.new(llPos.X, llPos.Y)
+                            data.Skeleton.TorsoToLeftLeg.Visible = true
+
+                            data.Skeleton.TorsoToRightLeg.From = Vector2.new(tPos.X, tPos.Y)
+                            data.Skeleton.TorsoToRightLeg.To = Vector2.new(rlPos.X, rlPos.Y)
+                            data.Skeleton.TorsoToRightLeg.Visible = true
+                        else
+                            for _, line in pairs(data.Skeleton) do line.Visible = false end
+                        end
+                    else
+                        for _, line in pairs(data.Skeleton) do line.Visible = false end
+                    end
+                else
+                    data.Box.Visible = false
+                    data.Tracer.Visible = false
+                    for _, line in pairs(data.Skeleton) do line.Visible = false end
                 end
-            else
-                data.Beam.Enabled = false
             end
         end
     end
 
-    -- 6. Auto Kill / Rage Bot Simulation
+    -- 5. Auto Kill / Rage Bot
     if Features.AutoKill or Features.RageBot then
         for _, player in ipairs(Players:GetPlayers()) do
             if IsEnemy(player) then
@@ -916,16 +948,14 @@ RunService.RenderStepped:Connect(function()
                 if char and IsAlive(char) then
                     local root = GetRoot(char)
                     if root and FireRemote then
-                        pcall(function()
-                            FireRemote:FireServer(root.Position, root)
-                        end)
+                        pcall(function() FireRemote:FireServer(root.Position, root) end)
                     end
                 end
             end
         end
     end
 
-    -- 7. Insta Backstab Logic
+    -- 6. Insta Backstab
     if Features.InstaBackstab then
         for _, player in ipairs(Players:GetPlayers()) do
             if IsEnemy(player) then
@@ -943,7 +973,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 8. Matrix Slide & Slide Power Logic
+    -- 7. Matrix Slide
     if Features.MatrixSlide then
         pcall(function()
             local char = LocalPlayer.Character
@@ -956,7 +986,7 @@ RunService.RenderStepped:Connect(function()
         end)
     end
 
-    -- 9. Fly Logic
+    -- 8. Fly
     local char = LocalPlayer.Character
     local root = char and GetRoot(char)
     if Features.Fly and root then
@@ -1134,4 +1164,4 @@ do
     end)
 end
 
-print("[Fanware] Loaded and Fully Functional. Press RightShift to toggle the menu.")
+print("[Fanware] Loaded with Drawing ESP and Mouse Aimbot. Press RightShift to toggle.")
