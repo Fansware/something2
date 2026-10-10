@@ -699,6 +699,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     aimbotAllowedTime = tick() + 5
 end)
 
+-- Detector de Lobby / Tercera Persona (si no hay HumanoidRootPart o la cámara está muy alejada)
 local function InLobbyOrSafe()
     local char = LocalPlayer.Character
     if not char then return true end
@@ -860,7 +861,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 2. Death Lock Logic
+    -- 2. Death Lock Logic (También restringido)
     if Features.DeathLock and main.Visible == false and not InLobbyOrSafe() then
         local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
         if targetPart then
@@ -1235,10 +1236,10 @@ do
     end)
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch souvenir then
+            or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
 end
 
-print("[Fanware] Clean script loaded without Skin Changer.")
+print("[Fanware] Fully Loaded with Menu & Lobby Protections + 5s Spawn Delay.")
