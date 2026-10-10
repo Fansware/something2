@@ -661,7 +661,7 @@ local function makeKeybind(page, label, default, callback)
 end
 
 --==============================================================
--- SCRIPT FUNCTIONALITY IMPLEMENTATION (DRAWING ESP & MOUSE AIM)
+-- SCRIPT FUNCTIONALITY IMPLEMENTATION
 --==============================================================
 local Features = {
     Aimbot = false,
@@ -691,6 +691,24 @@ local Features = {
     FlySpeed = 50,
     NotifyRivals = true
 }
+
+-- Control de 5 segundos de espera al reaparecer/cambiar de arma
+local aimbotAllowedTime = tick() + 5
+
+LocalPlayer.CharacterAdded:Connect(function()
+    aimbotAllowedTime = tick() + 5
+end)
+
+-- Detector de Lobby / Tercera Persona (si no hay HumanoidRootPart o la cámara está muy alejada)
+local function InLobbyOrSafe()
+    local char = LocalPlayer.Character
+    if not char then return true end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or hum.Health <= 0 or not root then return true end
+    if tick() < aimbotAllowedTime then return true end
+    return false
+end
 
 local RemoteFolder = ReplicatedStorage:FindFirstChild("ShooterRemotes")
 local FireRemote = RemoteFolder and RemoteFolder:FindFirstChild("Fire")
@@ -757,7 +775,7 @@ local function GetClosestTarget(targetType)
     return closestPlayer, closestPart
 end
 
--- Drawing ESP Objects Management (Visible through walls)
+-- Drawing ESP Objects Management
 local DrawingESP = {}
 
 local function CreateDrawingESP(player)
@@ -826,8 +844,8 @@ local triggerCooldown = false
 local flyBodyVelocity, flyBodyGyro
 
 RunService.RenderStepped:Connect(function()
-    -- 1. Mouse-based Aimbot Logic
-    if Features.Aimbot then
+    -- 1. Mouse-based Aimbot Logic (Con restricciones de Menú, Lobby y 5s de espera)
+    if Features.Aimbot and main.Visible == false and not InLobbyOrSafe() then
         local _, targetPart = GetClosestTarget(Features.AimbotTarget)
         if targetPart then
             local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
@@ -843,8 +861,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 2. Death Lock Logic
-    if Features.DeathLock then
+    -- 2. Death Lock Logic (También restringido)
+    if Features.DeathLock and main.Visible == false and not InLobbyOrSafe() then
         local _, targetPart = GetClosestTarget(Features.DeathLockTarget)
         if targetPart then
             local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
@@ -857,7 +875,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     -- 3. TriggerBot & Auto Shoot
-    if (Features.TriggerBot or Features.AutoShoot) and not triggerCooldown then
+    if (Features.TriggerBot or Features.AutoShoot) and main.Visible == false and not InLobbyOrSafe() and not triggerCooldown then
         local viewport = Camera.ViewportSize
         local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
         local params = RaycastParams.new()
@@ -993,7 +1011,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     -- 5. Auto Kill / Rage Bot
-    if Features.AutoKill or Features.RageBot then
+    if (Features.AutoKill or Features.RageBot) and main.Visible == false and not InLobbyOrSafe() then
         for _, player in ipairs(Players:GetPlayers()) do
             if IsEnemy(player) then
                 local char = GetCharacter(player)
@@ -1008,7 +1026,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     -- 6. Insta Backstab
-    if Features.InstaBackstab then
+    if Features.InstaBackstab and main.Visible == false and not InLobbyOrSafe() then
         for _, player in ipairs(Players:GetPlayers()) do
             if IsEnemy(player) then
                 local char = GetCharacter(player)
@@ -1224,4 +1242,4 @@ do
     end)
 end
 
-print("[Fanware] Fully Fixed: Dropdowns overlay fixed & Drawing ESP Text (Names & HP) working.")
+print("[Fanware] Fully Loaded with Menu & Lobby Protections + 5s Spawn Delay.")
