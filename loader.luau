@@ -398,6 +398,8 @@ local function makeToggle(page, label, default, callback)
     }
 end
 
+local activeDropdownList = nil
+
 local function makeDropdown(page, label, options, default, callback)
     local holder = new("Frame", {
         Parent = page,
@@ -439,44 +441,61 @@ local function makeDropdown(page, label, options, default, callback)
     corner(btn, 6)
 
     local open = false
-    local list
+
+    local function closeMenu()
+        if activeDropdownList then
+            activeDropdownList:Destroy()
+            activeDropdownList = nil
+        end
+        open = false
+    end
 
     btn.MouseButton1Click:Connect(function()
-        open = not open
         if open then
-            list = new("Frame", {
-                Parent = holder,
-                Size = UDim2.new(0, 120, 0, #options * 22),
-                Position = UDim2.new(1, -130, 1, 2),
+            closeMenu()
+        else
+            if activeDropdownList then activeDropdownList:Destroy() end
+            open = true
+
+            local absPos = btn.AbsolutePosition
+            local absSize = btn.AbsoluteSize
+
+            local list = new("Frame", {
+                Parent = ScreenGui,
+                Size = UDim2.new(0, absSize.X, 0, #options * 24),
+                Position = UDim2.fromOffset(absPos.X, absPos.Y + absSize.Y + 2),
                 BackgroundColor3 = Color3.fromRGB(30, 30, 38),
                 BorderSizePixel = 0,
-                ZIndex = 20,
+                ZIndex = 100,
             })
             corner(list, 6)
             stroke(list, Color3.fromRGB(70, 70, 85), 1)
 
+            local layout = new("UIListLayout", {
+                Parent = list,
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+
             for _, opt in ipairs(options) do
                 local ob = new("TextButton", {
                     Parent = list,
-                    Size = UDim2.new(1, 0, 0, 22),
+                    Size = UDim2.new(1, 0, 0, 24),
                     BackgroundColor3 = Color3.fromRGB(30, 30, 38),
                     BorderSizePixel = 0,
                     Text = opt,
                     TextColor3 = Color3.fromRGB(220, 220, 225),
                     Font = Enum.Font.Gotham,
                     TextSize = 12,
-                    ZIndex = 21,
+                    ZIndex = 101,
                 })
                 ob.MouseButton1Click:Connect(function()
                     selected = opt
                     btn.Text = opt
                     if callback then callback(opt) end
-                    if list then list:Destroy() list = nil end
-                    open = false
+                    closeMenu()
                 end)
             end
-        else
-            if list then list:Destroy() list = nil end
+            activeDropdownList = list
         end
     end)
 
@@ -755,7 +774,14 @@ local function CreateDrawingESP(player)
     tracer.Thickness = 1.5
     tracer.Color = Features.TracerColor
 
-    -- Skeleton joints (Head to Torso, Torso to Arms/Legs)
+    local infoText = Drawing.new("Text")
+    infoText.Visible = false
+    infoText.Center = true
+    infoText.Outline = true
+    infoText.OutlineColor = Color3.fromRGB(0, 0, 0)
+    infoText.Size = 13
+    infoText.Color = Color3.fromRGB(255, 255, 255)
+
     local skeletonLines = {
         HeadToTorso = Drawing.new("Line"),
         TorsoToLeftArm = Drawing.new("Line"),
@@ -769,7 +795,7 @@ local function CreateDrawingESP(player)
         line.Color = Features.BoxColor
     end
 
-    DrawingESP[player] = {Box = box, Tracer = tracer, Skeleton = skeletonLines}
+    DrawingESP[player] = {Box = box, Tracer = tracer, Text = infoText, Skeleton = skeletonLines}
 end
 
 local function RemoveDrawingESP(player)
@@ -777,6 +803,7 @@ local function RemoveDrawingESP(player)
     if data then
         if data.Box then data.Box:Remove() end
         if data.Tracer then data.Tracer:Remove() end
+        if data.Text then data.Text:Remove() end
         for _, line in pairs(data.Skeleton) do
             line:Remove()
         end
@@ -850,7 +877,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 4. Drawing ESP Updates (Through Walls)
+    -- 4. Drawing ESP Updates
     for player, data in pairs(DrawingESP) do
         local char = GetCharacter(player)
         local valid = Features.ESP and char and IsAlive(char) and IsEnemy(player)
@@ -858,6 +885,7 @@ RunService.RenderStepped:Connect(function()
         if not valid then
             data.Box.Visible = false
             data.Tracer.Visible = false
+            data.Text.Visible = false
             for _, line in pairs(data.Skeleton) do line.Visible = false end
         else
             local root = GetRoot(char)
@@ -868,16 +896,39 @@ RunService.RenderStepped:Connect(function()
                 local legPos, legOnScreen = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
 
                 if rootOnScreen then
+                    local height = math.abs(headPos.Y - legPos.Y)
+                    local width = height / 2
+
                     -- Boxes
                     if Features.Boxes then
-                        local height = math.abs(headPos.Y - legPos.Y)
-                        local width = height / 2
                         data.Box.Size = Vector2.new(width, height)
                         data.Box.Position = Vector2.new(rootPos.X - width / 2, headPos.Y)
                         data.Box.Color = Features.BoxColor
                         data.Box.Visible = true
                     else
                         data.Box.Visible = false
+                    end
+
+                    -- Text (Show Life & Show Names)
+                    if Features.ShowNames or Features.ShowLife then
+                        local displayText = ""
+                        if Features.ShowNames then
+                            displayText = player.Name
+                        end
+                        if Features.ShowLife then
+                            local hum = GetHumanoid(char)
+                            if hum then
+                                if displayText ~= "" then
+                                    displayText = displayText .. " | "
+                                end
+                                displayText = displayText .. math.floor(hum.Health) .. " HP"
+                            end
+                        end
+                        data.Text.Text = displayText
+                        data.Text.Position = Vector2.new(rootPos.X, headPos.Y - 16)
+                        data.Text.Visible = true
+                    else
+                        data.Text.Visible = false
                     end
 
                     -- Tracers
@@ -934,6 +985,7 @@ RunService.RenderStepped:Connect(function()
                 else
                     data.Box.Visible = false
                     data.Tracer.Visible = false
+                    data.Text.Visible = false
                     for _, line in pairs(data.Skeleton) do line.Visible = false end
                 end
             end
@@ -1124,12 +1176,16 @@ new("TextLabel", {
 addRow(settings, 60)
 
 --==============================================================
--- RIGHT SHIFT TOGGLE
+-- RIGHT SHIFT TOGGLE & MENU CLOSING ON CLICK
 --==============================================================
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         main.Visible = not main.Visible
+        if activeDropdownList then
+            activeDropdownList:Destroy()
+            activeDropdownList = nil
+        end
     end
 end)
 
@@ -1154,6 +1210,10 @@ do
                 startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
+            if activeDropdownList then
+                activeDropdownList:Destroy()
+                activeDropdownList = nil
+            end
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -1164,4 +1224,4 @@ do
     end)
 end
 
-print("[Fanware] Loaded with Drawing ESP and Mouse Aimbot. Press RightShift to toggle.")
+print("[Fanware] Fully Fixed: Dropdowns overlay fixed & Drawing ESP Text (Names & HP) working.")
