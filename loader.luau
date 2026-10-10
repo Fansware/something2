@@ -1,5 +1,5 @@
 --==============================================================
--- Fanware | Best script (fixed v2.6 — ultra camera+mouse, anti-katana cached)
+-- Fanware | Best script (fixed v2.9 — no antikatana, teamfix, acquire, config)
 -- Discord: https://discord.gg/g9UAV8xC2p
 --==============================================================
 -- Services
@@ -245,7 +245,7 @@ stroke(content, Color3.fromRGB(45, 45, 55), 1)
 --==============================================================
 local tabs = {}
 local activeTab = nil
-local tabNames = {"Combat", "Players", "Misc.", "Settings"}
+local tabNames = {"Combat", "Players", "Misc.", "Coils", "Settings"}
 
 local function createPage(name)
     local page = new("ScrollingFrame", {
@@ -672,24 +672,28 @@ local Features = {
     AimbotFOV = 350,
     AimbotMaxDist = 800,
     AimbotWallCheck = true,
+    AimbotTeamCheck = true,
 
     TriggerBot = false,
     TriggerBotDelay = 0.05,
+    TriggerBotAcquire = 0.12,
     TriggerBotWallCheck = true,
-
-    AntiKatana = false,
-    AntiKatanaRange = 25,
+    TriggerBotTeamCheck = true,
 
     DeathLock = false,
     DeathLockTarget = "Head",
     DeathLockWallCheck = true,
+    DeathLockTeamCheck = true,
     DeathLockUltra = false,
     DeathLockUltraTarget = "Mixed",
     DeathLockUltraWallCheck = true,
+    DeathLockUltraTeamCheck = true,
     AimbotStickiness = 5,
 
     AutoShoot = false,
     AutoShootDelay = 0.07,
+    AutoShootAcquire = 0.15,
+    AutoShootTeamCheck = true,
 
     ESP = false,
     Boxes = false,
@@ -716,6 +720,11 @@ local Features = {
     SpinBot = false,
     SpinSpeed = 15,
     NotifyRivals = true,
+    AutoSaveConfig = false,
+    AutoExecute = false,
+
+    NoMeleeCooldown = false,
+    NoScopeCooldown = false,
 }
 
 local aimbotAllowedTime = tick() + 5
@@ -799,17 +808,35 @@ local function GetPart(character, targetType)
     end
 end
 
--- ignore team always for rage TPs
+-- Rivals-friendly team check
+-- Uses Team instance, TeamColor, and Neutral. If either side has no team, treat as enemy (FFA / unassigned).
 local function IsEnemy(player)
-    if player == LocalPlayer then return false end
-    if LocalPlayer.Team and player.Team then
-        return player.Team ~= LocalPlayer.Team
+    if not player or player == LocalPlayer then return false end
+    local myTeam = LocalPlayer.Team
+    local theirTeam = player.Team
+    -- both have teams → compare instances
+    if myTeam and theirTeam then
+        if myTeam == theirTeam then return false end
+        return true
+    end
+    -- TeamColor fallback (Rivals often keys on color)
+    local myColor = LocalPlayer.TeamColor
+    local theirColor = player.TeamColor
+    if myColor and theirColor and myTeam and theirTeam then
+        if myColor == theirColor then return false end
+    end
+    -- Neutral / no team → targetable in FFA style modes
+    if LocalPlayer.Neutral or player.Neutral then
+        return true
+    end
+    if not myTeam or not theirTeam then
+        return true
     end
     return true
 end
 
 local function IsAnyPlayer(player)
-    return player ~= LocalPlayer
+    return player ~= nil and player ~= LocalPlayer
 end
 
 -- Wallcheck with larger tolerance (more studs / ignore tiny hits)
@@ -851,8 +878,8 @@ local function IsVisible(part, fromCamera)
     return not HasWallBetween(origin, part.Position, ignore)
 end
 
--- Closest target with larger recognition radius
-local function GetClosestTarget(targetType, maxFOV, maxDist, wallCheck, useCameraOrigin, ignoreTeam)
+-- Closest target — teamCheck=true => enemies only; false => all others
+local function GetClosestTarget(targetType, maxFOV, maxDist, wallCheck, useCameraOrigin, teamCheck)
     local mousePos = UserInputService:GetMouseLocation()
     local closestPlayer, closestPart = nil, nil
     local shortestDist = maxFOV or math.huge
@@ -860,7 +887,12 @@ local function GetClosestTarget(targetType, maxFOV, maxDist, wallCheck, useCamer
     local origin = (useCameraOrigin and Camera.CFrame.Position) or (myRoot and myRoot.Position)
 
     for _, player in ipairs(Players:GetPlayers()) do
-        local valid = ignoreTeam and IsAnyPlayer(player) or IsEnemy(player)
+        local valid
+        if teamCheck then
+            valid = IsEnemy(player)
+        else
+            valid = IsAnyPlayer(player)
+        end
         if valid then
             local char = GetCharacter(player)
             if char and IsAlive(char) then
@@ -971,88 +1003,6 @@ Players.PlayerAdded:Connect(function(p)
 end)
 Players.PlayerRemoving:Connect(RemoveDrawingESP)
 
--- Anti Katana (RIVALS) — cached scan so it is not laggy
-local katanaCache = {} -- [player] = {has = bool, root = Part?, expire = tick}
-local KATANA_CACHE_TTL = 0.35
-
-local function PlayerHasKatanaFast(player)
-    local now = tick()
-    local entry = katanaCache[player]
-    if entry and entry.expire > now then
-        return entry.has, entry.root
-    end
-    local has = false
-    local root = nil
-    local char = player and player.Character
-    if char then
-        root = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
-        -- equipped tool only (cheap) — backpack check only every few refreshes
-        local tool = char:FindFirstChildOfClass("Tool")
-        if tool then
-            local n = string.lower(tool.Name)
-            if n:find("katana") or n:find("saber") then
-                has = true
-            end
-        end
-        if not has then
-            -- light name scan on direct children only
-            for _, obj in ipairs(char:GetChildren()) do
-                if obj:IsA("Tool") then
-                    local n = string.lower(obj.Name)
-                    if n:find("katana") or n:find("saber") then
-                        has = true
-                        break
-                    end
-                end
-            end
-        end
-    end
-    katanaCache[player] = {has = has, root = root, expire = now + KATANA_CACHE_TTL}
-    return has, root
-end
-
-Players.PlayerRemoving:Connect(function(p)
-    katanaCache[p] = nil
-end)
-
-local lastKatanaScan = 0
-local cachedKatanaNear = false
-
-local function KatanaNearby()
-    if not Features.AntiKatana then
-        cachedKatanaNear = false
-        return false
-    end
-    local now = tick()
-    -- throttle full scan to ~8 Hz
-    if now - lastKatanaScan < 0.12 then
-        return cachedKatanaNear
-    end
-    lastKatanaScan = now
-    local myRoot = GetRoot(LocalPlayer.Character)
-    if not myRoot then
-        cachedKatanaNear = false
-        return false
-    end
-    local range = Features.AntiKatanaRange or 25
-    local rangeSq = range * range
-    local myPos = myRoot.Position
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and IsEnemy(player) then
-            local has, root = PlayerHasKatanaFast(player)
-            if has and root then
-                local d = root.Position - myPos
-                if d.X*d.X + d.Y*d.Y + d.Z*d.Z <= rangeSq then
-                    cachedKatanaNear = true
-                    return true
-                end
-            end
-        end
-    end
-    cachedKatanaNear = false
-    return false
-end
-
 local function FireAt(part)
     if not part then return end
     if FireRemote then
@@ -1080,6 +1030,8 @@ local autoShootCooldown = false
 local shootWallsCooldown = false
 local flyBodyVelocity, flyBodyGyro
 local lastTPBehind, lastTPUp = 0, 0
+local triggerAcquirePlayer, triggerAcquireAt = nil, 0
+local autoAcquirePlayer, autoAcquireAt = nil, 0
 
 RunService.RenderStepped:Connect(function()
     local menuOpen = main.Visible
@@ -1095,7 +1047,7 @@ RunService.RenderStepped:Connect(function()
             Features.AimbotMaxDist,
             Features.AimbotWallCheck,
             true,
-            false
+            Features.AimbotTeamCheck ~= false
         )
         if targetPart and mousemoverel then
             local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
@@ -1120,7 +1072,7 @@ RunService.RenderStepped:Connect(function()
             900,
             Features.DeathLockWallCheck,
             true,
-            false
+            Features.DeathLockTeamCheck ~= false
         )
         if targetPart and mousemoverel then
             local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
@@ -1132,7 +1084,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 2b. Death Lock ULTRA — camera + mouse sticky lock
+    -- 2b. Death Lock ULTRA — cursor only (no camera force)
     if Features.DeathLockUltra and not menuOpen and not safe then
         local tgtMode = Features.DeathLockUltraTarget or "Mixed"
         local partType = tgtMode
@@ -1145,77 +1097,90 @@ RunService.RenderStepped:Connect(function()
             1500,
             Features.DeathLockUltraWallCheck,
             true,
-            false
+            Features.DeathLockUltraTeamCheck ~= false
         )
-        if targetPart then
-            local cam = Camera
-            local origin = cam.CFrame.Position
-            local goal = CFrame.lookAt(origin, targetPart.Position)
-            -- hard camera stick
-            cam.CFrame = cam.CFrame:Lerp(goal, 0.85)
-            -- mouse stick (full pull, slight clamp so it doesn't overshoot wildly)
-            if mousemoverel then
-                local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
-                if onScreen and screenPos.Z > 0 then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local dx = screenPos.X - mousePos.X
-                    local dy = screenPos.Y - mousePos.Y
-                    -- full sticky: almost 1:1 mouse move toward target
-                    if math.abs(dx) > 0.5 or math.abs(dy) > 0.5 then
-                        mousemoverel(dx * 0.95, dy * 0.95)
-                    end
+        if targetPart and mousemoverel then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen and screenPos.Z > 0 then
+                local mousePos = UserInputService:GetMouseLocation()
+                local dx = screenPos.X - mousePos.X
+                local dy = screenPos.Y - mousePos.Y
+                -- sticky cursor lock
+                if math.abs(dx) > 0.35 or math.abs(dy) > 0.35 then
+                    mousemoverel(dx, dy)
                 end
             end
         end
     end
 
-    -- 3. Anti Katana — hold fire if enemy katana is in range (deflect zone)
-    local katanaNear = false
-    if Features.AntiKatana and not safe then
-        katanaNear = KatanaNearby()
-    end
-
-    -- 4. TriggerBot
-    if Features.TriggerBot and not menuOpen and not safe and not triggerCooldown and not katanaNear then
+    -- 4. TriggerBot (acquire delay before first shot on a target)
+    if Features.TriggerBot and not menuOpen and not safe and not triggerCooldown then
         local viewport = Camera.ViewportSize
         local ray = Camera:ViewportPointToRay(viewport.X / 2, viewport.Y / 2)
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.FilterDescendantsInstances = {LocalPlayer.Character}
         local result = Workspace:Raycast(ray.Origin, ray.Direction * 2500, params)
+        local shot = false
         if result then
             local char = result.Instance:FindFirstAncestorOfClass("Model")
             local player = char and Players:GetPlayerFromCharacter(char)
-            if player and IsEnemy(player) and IsAlive(char) then
+            local teamOk = true
+            if Features.TriggerBotTeamCheck ~= false then
+                teamOk = player and IsEnemy(player)
+            else
+                teamOk = player and player ~= LocalPlayer
+            end
+            if teamOk and char and IsAlive(char) then
                 if not Features.TriggerBotWallCheck or IsVisible(result.Instance, true) then
-                    triggerCooldown = true
-                    DoClick()
-                    FireAt(result.Instance)
-                    task.delay(Features.TriggerBotDelay, function()
-                        triggerCooldown = false
-                    end)
+                    if triggerAcquirePlayer ~= player then
+                        triggerAcquirePlayer = player
+                        triggerAcquireAt = tick()
+                    end
+                    local waitT = Features.TriggerBotAcquire or 0.12
+                    if (tick() - triggerAcquireAt) >= waitT then
+                        triggerCooldown = true
+                        shot = true
+                        DoClick()
+                        FireAt(result.Instance)
+                        task.delay(Features.TriggerBotDelay, function()
+                            triggerCooldown = false
+                        end)
+                    end
                 end
             end
         end
+        if not shot and not result then
+            triggerAcquirePlayer = nil
+        end
     end
 
-    -- 5. AutoShoot
-    if Features.AutoShoot and not menuOpen and not safe and not autoShootCooldown and not katanaNear then
-        local _, part = GetClosestTarget(
+    -- 5. AutoShoot (acquire delay so you can actually aim first)
+    if Features.AutoShoot and not menuOpen and not safe and not autoShootCooldown then
+        local plr, part = GetClosestTarget(
             Features.AimbotTarget or "Head",
             Features.AimbotFOV or 350,
             900,
             Features.AimbotWallCheck,
             true,
-            false
+            Features.AutoShootTeamCheck ~= false
         )
-        if part then
-            autoShootCooldown = true
-            DoClick()
-            FireAt(part)
-            task.delay(Features.AutoShootDelay, function()
-                autoShootCooldown = false
-            end)
+        if part and plr then
+            if autoAcquirePlayer ~= plr then
+                autoAcquirePlayer = plr
+                autoAcquireAt = tick()
+            end
+            local waitT = Features.AutoShootAcquire or 0.15
+            if (tick() - autoAcquireAt) >= waitT then
+                autoShootCooldown = true
+                DoClick()
+                FireAt(part)
+                task.delay(Features.AutoShootDelay, function()
+                    autoShootCooldown = false
+                end)
+            end
+        else
+            autoAcquirePlayer = nil
         end
     end
 
@@ -1331,19 +1296,23 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 8. TP Up (closest, ignore team)
+    -- 8. TP Up (closest, ignore team) — snap once then settle, not continuous fly
     if Features.TPUp and myRoot and not safe then
-        if tick() - lastTPUp > 0.15 then
+        if tick() - lastTPUp > 0.45 then
             local _, targetRoot = GetClosestPlayer3D(true, 2000)
             if targetRoot then
-                myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 6, 0)
+                myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 5, 0)
+                pcall(function()
+                    myRoot.AssemblyLinearVelocity = Vector3.zero
+                    myRoot.AssemblyAngularVelocity = Vector3.zero
+                end)
                 lastTPUp = tick()
             end
         end
     end
 
     -- 9. Shoot through walls (closest, no wallcheck)
-    if Features.ShootThroughWalls and not menuOpen and not safe and not shootWallsCooldown and not katanaNear then
+    if Features.ShootThroughWalls and not menuOpen and not safe and not shootWallsCooldown then
         local _, targetRoot = GetClosestPlayer3D(false, 1500)
         if targetRoot then
             local head = targetRoot.Parent and targetRoot.Parent:FindFirstChild("Head")
@@ -1430,21 +1399,64 @@ RunService.RenderStepped:Connect(function()
         if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
     end
 
-    -- 13. SpinBot (BodyAngularVelocity — survives physics, actually spins)
+    -- 13. SpinBot — character yaw (visible to others). First-person camera stays independent.
     if Features.SpinBot and myRoot then
         local spin = myRoot:FindFirstChild("FanwareSpin")
         if not spin then
             spin = Instance.new("BodyAngularVelocity")
             spin.Name = "FanwareSpin"
             spin.MaxTorque = Vector3.new(0, math.huge, 0)
-            spin.P = 5000
+            spin.P = 99999
             spin.Parent = myRoot
         end
-        spin.AngularVelocity = Vector3.new(0, Features.SpinSpeed * 2, 0)
+        local spd = (Features.SpinSpeed or 15) * 3
+        spin.AngularVelocity = Vector3.new(0, spd, 0)
+        -- also force CFrame yaw so it registers even if physics fights it
+        myRoot.CFrame = myRoot.CFrame * CFrame.Angles(0, math.rad(Features.SpinSpeed or 15), 0)
     else
         if myRoot then
             local spin = myRoot:FindFirstChild("FanwareSpin")
             if spin then spin:Destroy() end
+        end
+    end
+
+    -- 14. Coils — no melee / scope cooldown (client-side attribute + remote spam safe)
+    if Features.NoMeleeCooldown or Features.NoScopeCooldown then
+        local char = LocalPlayer.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then
+                if Features.NoMeleeCooldown then
+                    pcall(function()
+                        tool:SetAttribute("Cooldown", 0)
+                        tool:SetAttribute("MeleeCooldown", 0)
+                        tool:SetAttribute("SwingCooldown", 0)
+                    end)
+                    for _, v in ipairs(tool:GetDescendants()) do
+                        if v:IsA("NumberValue") or v:IsA("IntValue") then
+                            local n = string.lower(v.Name)
+                            if n:find("cooldown") or n:find("cd") or n:find("delay") then
+                                v.Value = 0
+                            end
+                        end
+                    end
+                end
+                if Features.NoScopeCooldown then
+                    pcall(function()
+                        tool:SetAttribute("ScopeCooldown", 0)
+                        tool:SetAttribute("AdsCooldown", 0)
+                        tool:SetAttribute("AimCooldown", 0)
+                    end)
+                    for _, v in ipairs(tool:GetDescendants()) do
+                        if v:IsA("NumberValue") or v:IsA("IntValue") then
+                            local n = string.lower(v.Name)
+                            if n:find("scope") or n:find("ads") or n:find("aimcd") then
+                                v.Value = 0
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 end)
@@ -1461,24 +1473,28 @@ makeSlider(combat, "Aimbot Stickiness", 1, 10, 5, function(v) Features.AimbotSti
 makeSlider(combat, "Aimbot FOV", 50, 700, 350, function(v) Features.AimbotFOV = v end)
 makeSlider(combat, "Aimbot Max Dist", 100, 1500, 800, function(v) Features.AimbotMaxDist = v end)
 makeToggle(combat, "Aimbot WallCheck", true, function(v) Features.AimbotWallCheck = v end)
+makeToggle(combat, "Aimbot TeamCheck", true, function(v) Features.AimbotTeamCheck = v end)
 
 makeToggle(combat, "TriggerBot", false, function(v) Features.TriggerBot = v end)
 makeSlider(combat, "Trigger Delay (ms)", 20, 200, 50, function(v) Features.TriggerBotDelay = v / 1000 end)
+makeSlider(combat, "Trigger Acquire (ms)", 0, 400, 120, function(v) Features.TriggerBotAcquire = v / 1000 end)
 makeToggle(combat, "Trigger WallCheck", true, function(v) Features.TriggerBotWallCheck = v end)
-
-makeToggle(combat, "Anti Katana", false, function(v) Features.AntiKatana = v end)
-makeSlider(combat, "Anti Katana Range", 10, 60, 25, function(v) Features.AntiKatanaRange = v end)
+makeToggle(combat, "Trigger TeamCheck", true, function(v) Features.TriggerBotTeamCheck = v end)
 
 makeToggle(combat, "Death Lock", false, function(v) Features.DeathLock = v end)
 makeDropdown(combat, "Death Lock Target", {"Head", "Torso", "Nearest"}, "Head", function(v) Features.DeathLockTarget = v end)
 makeToggle(combat, "DeathLock WallCheck", true, function(v) Features.DeathLockWallCheck = v end)
+makeToggle(combat, "DeathLock TeamCheck", true, function(v) Features.DeathLockTeamCheck = v end)
 
 makeToggle(combat, "Death Lock ULTRA", false, function(v) Features.DeathLockUltra = v end)
 makeDropdown(combat, "ULTRA Target", {"Head", "Torso", "Mixed"}, "Mixed", function(v) Features.DeathLockUltraTarget = v end)
 makeToggle(combat, "ULTRA WallCheck", true, function(v) Features.DeathLockUltraWallCheck = v end)
+makeToggle(combat, "ULTRA TeamCheck", true, function(v) Features.DeathLockUltraTeamCheck = v end)
 
 makeToggle(combat, "Auto Shoot", false, function(v) Features.AutoShoot = v end)
 makeSlider(combat, "AutoShoot Delay (ms)", 30, 200, 70, function(v) Features.AutoShootDelay = v / 1000 end)
+makeSlider(combat, "AutoShoot Acquire (ms)", 0, 500, 150, function(v) Features.AutoShootAcquire = v / 1000 end)
+makeToggle(combat, "AutoShoot TeamCheck", true, function(v) Features.AutoShootTeamCheck = v end)
 
 --==============================================================
 -- PLAYERS TAB
@@ -1529,19 +1545,263 @@ makeToggle(misc, "SpinBot", false, function(v) Features.SpinBot = v end)
 makeSlider(misc, "  └ Spin Speed", 5, 40, 15, function(v) Features.SpinSpeed = v end)
 
 --==============================================================
+-- COILS TAB
+--==============================================================
+local coils = tabs["Coils"].page
+makeToggle(coils, "No Melee Cooldown", false, function(v) Features.NoMeleeCooldown = v end)
+makeToggle(coils, "No Scope Cooldown", false, function(v) Features.NoScopeCooldown = v end)
+new("TextLabel", {
+    Parent = coils,
+    Size = UDim2.new(1, 0, 0, 50),
+    BackgroundTransparency = 1,
+    Text = "Client-side cooldown strip.\nWorks when tools expose cooldown values/attributes.",
+    TextColor3 = Color3.fromRGB(150, 150, 165),
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 3,
+})
+addRow(coils, 50)
+
+--==============================================================
 -- SETTINGS TAB
 --==============================================================
 local settings = tabs["Settings"].page
 
-makeToggle(settings, "Notify when someone is using cheats (rival)", true, function(v) Features.NotifyRivals = v end)
-makeToggle(settings, "Auto save and auto execute after", false)
+makeToggle(settings, "Notify when someone is cheating", true, function(v) Features.NotifyRivals = v end)
+makeToggle(settings, "Auto save config", false, function(v) Features.AutoSaveConfig = v end)
+makeToggle(settings, "Auto execute on rejoin", false, function(v) Features.AutoExecute = v end)
+
+local CONFIG_KEYS = {
+    "Aimbot","AimbotTarget","AimbotSmoothness","AimbotFOV","AimbotMaxDist","AimbotWallCheck","AimbotTeamCheck","AimbotStickiness",
+    "TriggerBot","TriggerBotDelay","TriggerBotAcquire","TriggerBotWallCheck","TriggerBotTeamCheck",
+    "DeathLock","DeathLockTarget","DeathLockWallCheck","DeathLockTeamCheck",
+    "DeathLockUltra","DeathLockUltraTarget","DeathLockUltraWallCheck","DeathLockUltraTeamCheck",
+    "AutoShoot","AutoShootDelay","AutoShootAcquire","AutoShootTeamCheck",
+    "ESP","Boxes","Skeleton","Tracers","ShowLife","ShowNames",
+    "TPBehind","TPUp","ShootThroughWalls","InstaBackstab",
+    "SpeedHack","SpeedPower","Noclip","Fly","FlySpeed","SpinBot","SpinSpeed",
+    "NoMeleeCooldown","NoScopeCooldown","NotifyRivals","AutoSaveConfig","AutoExecute",
+}
+
+local function BuildConfigTable()
+    local t = {}
+    for _, k in ipairs(CONFIG_KEYS) do
+        local v = Features[k]
+        if typeof(v) == "Color3" then
+            t[k] = {v.R, v.G, v.B}
+        else
+            t[k] = v
+        end
+    end
+    return t
+end
+
+local function ApplyConfigTable(t)
+    if type(t) ~= "table" then return false end
+    for _, k in ipairs(CONFIG_KEYS) do
+        if t[k] ~= nil then
+            Features[k] = t[k]
+        end
+    end
+    return true
+end
+
+local function SerializeConfig(t)
+    local parts = {"{"}
+    for k, v in pairs(t) do
+        local key = string.format("[%q]", k)
+        local val
+        if type(v) == "string" then
+            val = string.format("%q", v)
+        elseif type(v) == "boolean" or type(v) == "number" then
+            val = tostring(v)
+        elseif type(v) == "table" then
+            val = string.format("{%s,%s,%s}", tostring(v[1]), tostring(v[2]), tostring(v[3]))
+        else
+            val = "nil"
+        end
+        table.insert(parts, key .. "=" .. val .. ",")
+    end
+    table.insert(parts, "}")
+    return table.concat(parts)
+end
+
+makeButton(settings, "Export Setting", function()
+    local code = "--FANWARE_CFG--" .. SerializeConfig(BuildConfigTable()) .. "--END--"
+    if setclipboard then
+        pcall(function() setclipboard(code) end)
+        print("[Fanware] Config copied to clipboard")
+    else
+        print("[Fanware] Export (copy this):")
+        print(code)
+    end
+    -- also show in a small notify
+    pcall(function()
+        local g = Instance.new("ScreenGui")
+        g.Name = "FanwareExport"
+        g.Parent = CoreGui
+        local f = Instance.new("TextLabel")
+        f.Size = UDim2.new(0, 320, 0, 40)
+        f.Position = UDim2.new(0.5, -160, 0.1, 0)
+        f.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+        f.TextColor3 = Color3.fromRGB(200, 230, 255)
+        f.Font = Enum.Font.Gotham
+        f.TextSize = 13
+        f.Text = setclipboard and "Config copied to clipboard" or "Config printed to console"
+        f.Parent = g
+        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+        task.delay(2.5, function() g:Destroy() end)
+    end)
+end)
 
 makeButton(settings, "Import Setting", function()
-    print("[Fanware] Import Setting pressed")
+    local box = Instance.new("ScreenGui")
+    box.Name = "FanwareImport"
+    box.Parent = CoreGui
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 420, 0, 160)
+    frame.Position = UDim2.new(0.5, -210, 0.5, -80)
+    frame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    frame.Parent = box
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 0, 24)
+    title.Position = UDim2.new(0, 10, 0, 8)
+    title.BackgroundTransparency = 1
+    title.Text = "Paste Fanware config code"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = frame
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(1, -20, 0, 70)
+    input.Position = UDim2.new(0, 10, 0, 36)
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    input.TextColor3 = Color3.fromRGB(220, 220, 230)
+    input.Font = Enum.Font.Code
+    input.TextSize = 11
+    input.Text = ""
+    input.ClearTextOnFocus = false
+    input.TextWrapped = true
+    input.MultiLine = true
+    input.Parent = frame
+    Instance.new("UICorner", input).CornerRadius = UDim.new(0, 6)
+    local apply = Instance.new("TextButton")
+    apply.Size = UDim2.new(0.5, -14, 0, 32)
+    apply.Position = UDim2.new(0, 10, 1, -42)
+    apply.BackgroundColor3 = Color3.fromRGB(50, 90, 200)
+    apply.Text = "Apply"
+    apply.TextColor3 = Color3.fromRGB(255, 255, 255)
+    apply.Font = Enum.Font.GothamMedium
+    apply.TextSize = 13
+    apply.Parent = frame
+    Instance.new("UICorner", apply).CornerRadius = UDim.new(0, 6)
+    local cancel = Instance.new("TextButton")
+    cancel.Size = UDim2.new(0.5, -14, 0, 32)
+    cancel.Position = UDim2.new(0.5, 4, 1, -42)
+    cancel.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    cancel.Text = "Cancel"
+    cancel.TextColor3 = Color3.fromRGB(230, 230, 235)
+    cancel.Font = Enum.Font.GothamMedium
+    cancel.TextSize = 13
+    cancel.Parent = frame
+    Instance.new("UICorner", cancel).CornerRadius = UDim.new(0, 6)
+    cancel.MouseButton1Click:Connect(function() box:Destroy() end)
+    apply.MouseButton1Click:Connect(function()
+        local raw = input.Text or ""
+        local body = raw:match("%-%-FANWARE_CFG%-%-(.-)%-%-END%-%-") or raw
+        local ok, tbl = pcall(function()
+            return loadstring("return " .. body)()
+        end)
+        if ok and ApplyConfigTable(tbl) then
+            print("[Fanware] Config imported")
+        else
+            warn("[Fanware] Import failed — bad code")
+        end
+        box:Destroy()
+    end)
 end)
-makeButton(settings, "Export Setting", function()
-    print("[Fanware] Export Setting pressed")
+
+-- cheat notify UI (bottom left)
+local function NotifyCheater(name)
+    if not Features.NotifyRivals then return end
+    pcall(function()
+        local g = Instance.new("ScreenGui")
+        g.Name = "FanwareCheatNotify"
+        g.ResetOnSpawn = false
+        g.Parent = CoreGui
+        local f = Instance.new("TextLabel")
+        f.Size = UDim2.new(0, 340, 0, 44)
+        f.Position = UDim2.new(0, 16, 1, -70)
+        f.BackgroundColor3 = Color3.fromRGB(22, 18, 18)
+        f.TextColor3 = Color3.fromRGB(255, 200, 120)
+        f.Font = Enum.Font.GothamMedium
+        f.TextSize = 14
+        f.TextXAlignment = Enum.TextXAlignment.Left
+        f.Text = "  " .. tostring(name) .. " is cheating in legos LOL"
+        f.Parent = g
+        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+        local s = Instance.new("UIStroke")
+        s.Color = Color3.fromRGB(180, 80, 60)
+        s.Thickness = 1
+        s.Parent = f
+        task.delay(4, function() g:Destroy() end)
+    end)
+end
+
+-- simple heuristic: spin velocity / insane move speed flags (best-effort)
+local flagged = {}
+task.spawn(function()
+    while task.wait(2.5) do
+        if not Features.NotifyRivals then continue end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and not flagged[p] then
+                local char = p.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if root and hum then
+                    local spd = root.AssemblyLinearVelocity.Magnitude
+                    if spd > 120 or hum.WalkSpeed > 40 then
+                        flagged[p] = true
+                        NotifyCheater(p.Name)
+                    end
+                end
+            end
+        end
+    end
 end)
+Players.PlayerRemoving:Connect(function(p) flagged[p] = nil end)
+
+-- Auto save config to executor writefile if available
+local function SaveConfigDisk()
+    if not Features.AutoSaveConfig then return end
+    pcall(function()
+        if writefile then
+            local code = "--FANWARE_CFG--" .. SerializeConfig(BuildConfigTable()) .. "--END--"
+            writefile("Fanware_Config.txt", code)
+        end
+    end)
+end
+
+task.spawn(function()
+    while task.wait(8) do
+        SaveConfigDisk()
+    end
+end)
+
+-- Auto execute: store loadstring path note (executor dependent)
+if Features.AutoExecute then
+    pcall(function()
+        if writefile and readfile then
+            -- keep a marker so user can queue on rejoin manually / via autoexec folder
+            writefile("Fanware_AutoExec.txt", "Fansware_Fixed.luau v2.9")
+        end
+    end)
+end
+
 
 new("TextLabel", {
     Parent = settings,
@@ -1613,4 +1873,4 @@ do
     end)
 end
 
-print("[Fanware] v2.6 loaded — ULTRA camera+mouse sticky, Anti Katana cached.")
+print("[Fanware] v2.9 loaded — AntiKatana removed, teamcheck fixed, acquire delay, import/export.")
