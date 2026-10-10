@@ -1,5 +1,5 @@
 --==============================================================
--- Fanware | Best script (fixed v2.9 — no antikatana, teamfix, acquire, config)
+-- Fanware | Best script (fixed v3.0 — wallbang multi-remote)
 -- Discord: https://discord.gg/g9UAV8xC2p
 --==============================================================
 -- Services
@@ -743,41 +743,59 @@ local function InLobbyOrSafe()
 end
 
 -- Remote discovery
-local function FindFireRemote()
-    local candidates = {
-        {"ShooterRemotes", "Fire"},
-        {"Remotes", "Fire"},
-        {"Remotes", "Shoot"},
-        {"WeaponRemotes", "Fire"},
-        {"Events", "Fire"},
-        {"GunRemotes", "Fire"},
-    }
-    for _, path in ipairs(candidates) do
-        local folder = ReplicatedStorage:FindFirstChild(path[1])
-        if folder then
-            local rem = folder:FindFirstChild(path[2])
-            if rem and (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then
-                return rem
-            end
-        end
+-- Multi-remote discovery (Rivals uses several shot pipelines)
+local FireRemotes = {}
+local function RegisterRemote(rem)
+    if not rem then return end
+    if not (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then return end
+    for _, r in ipairs(FireRemotes) do
+        if r == rem then return end
     end
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            local n = string.lower(obj.Name)
-            if n == "fire" or n == "shoot" or n == "shootgun" or n == "fireweapon" or n == "checkfire" or n == "fireserver" then
-                return obj
-            end
-        end
-    end
-    return nil
+    table.insert(FireRemotes, rem)
+    print("[Fanware] Fire remote:", rem:GetFullName())
 end
 
-local FireRemote = FindFireRemote()
-if FireRemote then
-    print("[Fanware] Fire remote:", FireRemote:GetFullName())
-else
-    warn("[Fanware] No Fire remote found")
+local function FindFireRemotes()
+    local nameHints = {
+        "fire","shoot","shot","bullet","projectile","gun","weapon",
+        "hit","damage","replicate","cast","ammo","ray","checkfire","fireserver"
+    }
+    local function nameLooksGood(n)
+        n = string.lower(n)
+        for _, h in ipairs(nameHints) do
+            if n:find(h, 1, true) then return true end
+        end
+        return false
+    end
+    -- common folders first
+    for _, folderName in ipairs({"ShooterRemotes","Remotes","WeaponRemotes","Events","GunRemotes","Combat","Weapons","Network"}) do
+        local folder = ReplicatedStorage:FindFirstChild(folderName)
+        if folder then
+            for _, child in ipairs(folder:GetDescendants()) do
+                if (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")) and nameLooksGood(child.Name) then
+                    RegisterRemote(child)
+                end
+            end
+        end
+    end
+    -- full RS scan
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and nameLooksGood(obj.Name) then
+            RegisterRemote(obj)
+        end
+    end
+    -- also watch for late-created remotes
+    ReplicatedStorage.DescendantAdded:Connect(function(obj)
+        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and nameLooksGood(obj.Name) then
+            RegisterRemote(obj)
+        end
+    end)
 end
+FindFireRemotes()
+if #FireRemotes == 0 then
+    warn("[Fanware] No Fire remotes found yet — will keep watching")
+end
+local FireRemote = FireRemotes[1] -- legacy single ref for older calls
 
 local function GetCharacter(player)
     return player and player.Character
@@ -1003,13 +1021,39 @@ Players.PlayerAdded:Connect(function(p)
 end)
 Players.PlayerRemoving:Connect(RemoveDrawingESP)
 
-local function FireAt(part)
+local function FireAt(part, originOverride)
     if not part then return end
-    if FireRemote then
-        pcall(function() FireRemote:FireServer(part.Position, part) end)
-        pcall(function() FireRemote:FireServer(part.Position) end)
-        pcall(function() FireRemote:FireServer(part) end)
-        pcall(function() FireRemote:FireServer(CFrame.new(part.Position)) end)
+    local pos = part.Position
+    local cf = part.CFrame
+    local origin = originOverride
+    if not origin then
+        local r = GetRoot(LocalPlayer.Character)
+        origin = r and r.Position or Camera.CFrame.Position
+    end
+    local dir = (pos - origin)
+    if dir.Magnitude < 0.01 then dir = Camera.CFrame.LookVector else dir = dir.Unit end
+
+    local function tryFire(rem)
+        if not rem then return end
+        -- common Rivals / FPS arg patterns
+        pcall(function() rem:FireServer(pos) end)
+        pcall(function() rem:FireServer(pos, part) end)
+        pcall(function() rem:FireServer(part) end)
+        pcall(function() rem:FireServer(cf) end)
+        pcall(function() rem:FireServer(origin, pos) end)
+        pcall(function() rem:FireServer(origin, dir) end)
+        pcall(function() rem:FireServer(origin, dir * 500) end)
+        pcall(function() rem:FireServer({Position = pos, Part = part, Origin = origin, Direction = dir}) end)
+        pcall(function() rem:FireServer({pos, part, origin, dir}) end)
+        pcall(function() rem:FireServer(pos.X, pos.Y, pos.Z) end)
+    end
+
+    if #FireRemotes > 0 then
+        for _, rem in ipairs(FireRemotes) do
+            tryFire(rem)
+        end
+    elseif FireRemote then
+        tryFire(FireRemote)
     end
 end
 
@@ -1018,8 +1062,14 @@ local function DoClick()
     pcall(function()
         if mouse1press then
             mouse1press()
-            task.wait(0.015)
+            task.wait(0.02)
             mouse1release()
+        end
+    end)
+    -- also try mouse2 for scoped weapons
+    pcall(function()
+        if mouse2press then
+            -- don't force scope spam
         end
     end)
 end
@@ -1311,16 +1361,25 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- 9. Shoot through walls (closest, no wallcheck)
+    -- 9. Shoot through walls / wallbang (closest enemy, no LOS required)
     if Features.ShootThroughWalls and not menuOpen and not safe and not shootWallsCooldown then
-        local _, targetRoot = GetClosestPlayer3D(false, 1500)
+        local plr, targetRoot = GetClosestPlayer3D(false, 2000)
+        if not targetRoot then
+            -- team-aware fallback
+            plr, targetRoot = GetClosestPlayer3D(true, 2000)
+        end
         if targetRoot then
-            local head = targetRoot.Parent and targetRoot.Parent:FindFirstChild("Head")
+            local char = targetRoot.Parent
+            local head = char and char:FindFirstChild("Head")
             local part = head or targetRoot
             shootWallsCooldown = true
+            -- client click + multi-remote fire with spoofed origin near target (wallbang style)
             DoClick()
-            FireAt(part)
-            task.delay(0.06, function()
+            -- origin slightly in front of target so server LOS from "shot origin" is clear
+            local bangOrigin = part.Position - (Camera.CFrame.LookVector * 2)
+            FireAt(part, bangOrigin)
+            FireAt(part, part.Position + Vector3.new(0, 0.5, 0))
+            task.delay(0.05, function()
                 shootWallsCooldown = false
             end)
         end
@@ -1873,4 +1932,4 @@ do
     end)
 end
 
-print("[Fanware] v2.9 loaded — AntiKatana removed, teamcheck fixed, acquire delay, import/export.")
+print("[Fanware] v3.0 loaded — Shoot Through Walls multi-remote wallbang.")
